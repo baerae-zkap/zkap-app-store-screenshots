@@ -25,6 +25,8 @@ const SC_RX = (126 / 918) * 100;
 const SC_RY = (126 / 1990) * 100;
 
 /* ── Image Preloader ── */
+const BASE_PATH = process.env.NODE_ENV === "production" ? "/zkap-app-store-screenshots" : "";
+
 const IMAGE_PATHS = [
   "/mockup.png",
   "/app-icon.png",
@@ -39,7 +41,7 @@ const imageCache: Record<string, string> = {};
 async function preloadAllImages() {
   await Promise.all(
     IMAGE_PATHS.map(async (path) => {
-      const resp = await fetch(path);
+      const resp = await fetch(`${BASE_PATH}${path}`);
       const blob = await resp.blob();
       const dataUrl = await new Promise<string>((resolve) => {
         const reader = new FileReader();
