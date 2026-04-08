@@ -150,8 +150,8 @@ function Caption({ label, headline, color, canvasW }: { label: string; headline:
 }
 
 /* ── Generic Slide ── */
-function Slide({ index, canvasW, canvasH }: { index: number; canvasW: number; canvasH: number }) {
-  const s = SLIDES[index];
+function Slide({ index, canvasW, canvasH, slides }: { index: number; canvasW: number; canvasH: number; slides: ReturnType<typeof getSlides> }) {
+  const s = slides[index];
   const d = DECO[index];
   // Adjust phone size & position based on aspect ratio (Play 1.78:1 vs iOS ~2.17:1)
   const ratio = canvasH / canvasW;
@@ -323,13 +323,13 @@ export default function ScreenshotsPage() {
   const handleExportIos = useCallback(async (index: number) => {
     const el = iosRefs.current[index];
     if (!el) return;
-    await exportElement(el, iosSize.w, iosSize.h, `ios-${String(index + 1).padStart(2, "0")}-${SLIDES[index].id}-${iosSize.w}x${iosSize.h}.png`);
+    await exportElement(el, iosSize.w, iosSize.h, `ios-${String(index + 1).padStart(2, "0")}-${slides[index].id}-${iosSize.w}x${iosSize.h}.png`);
   }, [iosSize]);
 
   const handleExportPlay = useCallback(async (index: number) => {
     const el = playRefs.current[index];
     if (!el) return;
-    await exportElement(el, PLAY_SS.w, PLAY_SS.h, `play-${String(index + 1).padStart(2, "0")}-${SLIDES[index].id}-${PLAY_SS.w}x${PLAY_SS.h}.png`);
+    await exportElement(el, PLAY_SS.w, PLAY_SS.h, `play-${String(index + 1).padStart(2, "0")}-${slides[index].id}-${PLAY_SS.w}x${PLAY_SS.h}.png`);
   }, []);
 
   const handleExportFG = useCallback(async () => {
@@ -468,13 +468,13 @@ export default function ScreenshotsPage() {
             {SLIDES.map((s, i) => (
               <div key={`ios-${i}-${iosSizeIdx}`}>
                 <ScaledPreview canvasW={iosSize.w} canvasH={iosSize.h} onClick={() => handleExportIos(i)} label={`${s.id} — ${iosSize.w}x${iosSize.h}`}>
-                  <Slide index={i} canvasW={iosSize.w} canvasH={iosSize.h} />
+                  <Slide index={i} canvasW={iosSize.w} canvasH={iosSize.h} slides={slides} />
                 </ScaledPreview>
                 <div
                   ref={(el) => { iosRefs.current[i] = el; }}
                   style={{ position: "absolute", left: -9999, opacity: 0, width: iosSize.w, height: iosSize.h }}
                 >
-                  <Slide index={i} canvasW={iosSize.w} canvasH={iosSize.h} />
+                  <Slide index={i} canvasW={iosSize.w} canvasH={iosSize.h} slides={slides} />
                 </div>
               </div>
             ))}
@@ -489,13 +489,13 @@ export default function ScreenshotsPage() {
             {SLIDES.map((s, i) => (
               <div key={`play-${i}`}>
                 <ScaledPreview canvasW={PLAY_SS.w} canvasH={PLAY_SS.h} onClick={() => handleExportPlay(i)} label={`${s.id} — ${PLAY_SS.w}x${PLAY_SS.h}`}>
-                  <Slide index={i} canvasW={PLAY_SS.w} canvasH={PLAY_SS.h} />
+                  <Slide index={i} canvasW={PLAY_SS.w} canvasH={PLAY_SS.h} slides={slides} />
                 </ScaledPreview>
                 <div
                   ref={(el) => { playRefs.current[i] = el; }}
                   style={{ position: "absolute", left: -9999, opacity: 0, width: PLAY_SS.w, height: PLAY_SS.h }}
                 >
-                  <Slide index={i} canvasW={PLAY_SS.w} canvasH={PLAY_SS.h} />
+                  <Slide index={i} canvasW={PLAY_SS.w} canvasH={PLAY_SS.h} slides={slides} />
                 </div>
               </div>
             ))}
