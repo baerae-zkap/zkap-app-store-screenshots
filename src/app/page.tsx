@@ -46,7 +46,14 @@ const IMAGE_PATHS = [
   "/screenshots/exchange.png",
   "/screenshots/tax-confirm.png",
   "/screenshots/agent-select.png",
+  "/screenshots-develop/home.png",
+  "/screenshots-develop/exchange.png",
+  "/screenshots-develop/tax-confirm.png",
+  "/screenshots-develop/agent-select.png",
 ];
+
+const VERSIONS = ["current", "develop"] as const;
+type Version = typeof VERSIONS[number];
 
 const imageCache: Record<string, string> = {};
 
@@ -70,12 +77,14 @@ function img(path: string): string {
 }
 
 /* ── Slides Definition ── */
-const SLIDES = [
+function getSlides(version: Version) {
+  const dir = version === "current" ? "/screenshots" : "/screenshots-develop";
+  return [
   {
     id: "home",
     label: "자산관리",
     headline: "내 모든 거래소\n자산, 한눈에",
-    screenshot: "/screenshots/home.png",
+    screenshot: `${dir}/home.png`,
     bg: "linear-gradient(165deg, #2570cc 0%, #4DA0F7 40%, #7fc0ff 100%)",
     textColor: "#fff",
   },
@@ -83,7 +92,7 @@ const SLIDES = [
     id: "exchange",
     label: "거래소 연동",
     headline: "국내·해외 거래소\n한곳에서 연동",
-    screenshot: "/screenshots/exchange.png",
+    screenshot: `${dir}/exchange.png`,
     bg: "linear-gradient(165deg, #f8faff 0%, #e8f0fe 50%, #dbe7ff 100%)",
     textColor: "#1a1a2e",
   },
@@ -91,7 +100,7 @@ const SLIDES = [
     id: "tax-confirm",
     label: "자산 수집",
     headline: "해외 거래소 자산\n간편하게 수집",
-    screenshot: "/screenshots/tax-confirm.png",
+    screenshot: `${dir}/tax-confirm.png`,
     bg: "linear-gradient(165deg, #1a2744 0%, #2a4b7a 50%, #3d6aab 100%)",
     textColor: "#fff",
   },
@@ -99,11 +108,14 @@ const SLIDES = [
     id: "agent-select",
     label: "세무대리인",
     headline: "세무대리인 선택부터\n신고까지 간편하게",
-    screenshot: "/screenshots/agent-select.png",
+    screenshot: `${dir}/agent-select.png`,
     bg: "linear-gradient(165deg, #f0f4ff 0%, #e4ecff 50%, #d8e4ff 100%)",
     textColor: "#1a1a2e",
   },
-] as const;
+  ];
+}
+
+const SLIDES = getSlides("current");
 
 const DECO: { top: string; left?: string; right?: string; size: number; bg: string }[] = [
   { top: "15%", right: "-20%", size: 0.8, bg: "rgba(107,155,255,0.3)" },
@@ -291,7 +303,10 @@ function ScaledPreview({ children, canvasW, canvasH, onClick, label }: { childre
 export default function ScreenshotsPage() {
   const [ready, setReady] = useState(false);
   const [iosSizeIdx, setIosSizeIdx] = useState(0);
+  const [version, setVersion] = useState<Version>("current");
   const [exporting, setExporting] = useState(false);
+
+  const slides = getSlides(version);
 
   // Export refs
   const iosRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -362,6 +377,19 @@ export default function ScreenshotsPage() {
             <h1 className="text-lg font-bold text-black">ZKAP Store Assets</h1>
           </div>
           <div className="flex items-center gap-2">
+            <div className="flex rounded-lg border overflow-hidden mr-2">
+              {VERSIONS.map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setVersion(v)}
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                    version === v ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  {v === "current" ? "v0.4.3" : "develop"}
+                </button>
+              ))}
+            </div>
             {SECTIONS.map((s) => (
               <a
                 key={s.id}
