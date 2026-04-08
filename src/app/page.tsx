@@ -386,7 +386,7 @@ export default function ScreenshotsPage() {
                     version === v ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
                   }`}
                 >
-                  {v === "current" ? "v0.4.3" : "develop"}
+                  {v === "current" ? "UX 개선 ver" : "기존 ver"}
                 </button>
               ))}
             </div>
