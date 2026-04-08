@@ -219,16 +219,38 @@ function AppIconCanvas({ size, iconPath = "/app-icon.png" }: { size: number; ico
 }
 
 /* ── Generic export helper ── */
+function waitForPaint(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+}
+
 async function exportElement(el: HTMLDivElement, w: number, h: number, filename: string) {
+  // Make visible in viewport so browser fully paints it
+  el.style.position = "fixed";
   el.style.left = "0px";
+  el.style.top = "0px";
   el.style.opacity = "1";
-  el.style.zIndex = "-1";
+  el.style.zIndex = "-9999";
+  el.style.width = `${w}px`;
+  el.style.height = `${h}px`;
+  el.style.pointerEvents = "none";
+
+  // Wait for browser to paint
+  await waitForPaint();
+  await new Promise((r) => setTimeout(r, 100));
+
   const opts = { width: w, height: h, pixelRatio: 1, cacheBust: true };
   await toPng(el, opts); // warm-up
+  await waitForPaint();
   const dataUrl = await toPng(el, opts);
+
+  // Hide again
+  el.style.position = "absolute";
   el.style.left = "-9999px";
+  el.style.top = "";
   el.style.opacity = "0";
   el.style.zIndex = "";
+  el.style.pointerEvents = "";
+
   const link = document.createElement("a");
   link.download = filename;
   link.href = dataUrl;
@@ -275,8 +297,6 @@ export default function ScreenshotsPage() {
   const iosRefs = useRef<(HTMLDivElement | null)[]>([]);
   const playRefs = useRef<(HTMLDivElement | null)[]>([]);
   const fgRef = useRef<HTMLDivElement | null>(null);
-  const iconPlayRef = useRef<HTMLDivElement | null>(null);
-  const iconIosRef = useRef<HTMLDivElement | null>(null);
 
   const iosSize = IOS_SIZES[iosSizeIdx];
 
@@ -302,14 +322,18 @@ export default function ScreenshotsPage() {
     await exportElement(fgRef.current, FG_W, FG_H, `feature-graphic-${FG_W}x${FG_H}.png`);
   }, []);
 
-  const handleExportIconPlay = useCallback(async () => {
-    if (!iconPlayRef.current) return;
-    await exportElement(iconPlayRef.current, ICON_PLAY, ICON_PLAY, `app-icon-${ICON_PLAY}x${ICON_PLAY}.png`);
+  const handleExportIconPlay = useCallback(() => {
+    const link = document.createElement("a");
+    link.download = `app-icon-play-${ICON_PLAY}x${ICON_PLAY}.png`;
+    link.href = img("/app-icon-play.png");
+    link.click();
   }, []);
 
-  const handleExportIconIos = useCallback(async () => {
-    if (!iconIosRef.current) return;
-    await exportElement(iconIosRef.current, ICON_IOS, ICON_IOS, `app-icon-${ICON_IOS}x${ICON_IOS}.png`);
+  const handleExportIconIos = useCallback(() => {
+    const link = document.createElement("a");
+    link.download = `app-icon-ios-${ICON_IOS}x${ICON_IOS}.png`;
+    link.href = img("/app-icon.png");
+    link.click();
   }, []);
 
   /* ── Export All ── */
@@ -369,22 +393,15 @@ export default function ScreenshotsPage() {
           <div className="flex gap-8">
             {/* Play Store Icon */}
             <div className="flex flex-col items-center gap-3">
-              <ScaledPreview canvasW={ICON_PLAY} canvasH={ICON_PLAY} onClick={handleExportIconPlay} label={`Google Play — ${ICON_PLAY}x${ICON_PLAY}`}>
+              <ScaledPreview canvasW={ICON_PLAY} canvasH={ICON_PLAY} onClick={handleExportIconPlay} label={`Google Play — ${ICON_PLAY}x${ICON_PLAY} (원본 다운로드)`}>
                 <AppIconCanvas size={ICON_PLAY} iconPath="/app-icon-play.png" />
               </ScaledPreview>
-              {/* Hidden export */}
-              <div ref={(el) => { iconPlayRef.current = el; }} style={{ position: "absolute", left: -9999, opacity: 0, width: ICON_PLAY, height: ICON_PLAY }}>
-                <AppIconCanvas size={ICON_PLAY} iconPath="/app-icon-play.png" />
-              </div>
             </div>
             {/* iOS Icon */}
             <div className="flex flex-col items-center gap-3">
-              <ScaledPreview canvasW={ICON_IOS} canvasH={ICON_IOS} onClick={handleExportIconIos} label={`App Store — ${ICON_IOS}x${ICON_IOS}`}>
+              <ScaledPreview canvasW={ICON_IOS} canvasH={ICON_IOS} onClick={handleExportIconIos} label={`App Store — ${ICON_IOS}x${ICON_IOS} (원본 다운로드)`}>
                 <AppIconCanvas size={ICON_IOS} />
               </ScaledPreview>
-              <div ref={(el) => { iconIosRef.current = el; }} style={{ position: "absolute", left: -9999, opacity: 0, width: ICON_IOS, height: ICON_IOS }}>
-                <AppIconCanvas size={ICON_IOS} />
-              </div>
             </div>
           </div>
         </section>
