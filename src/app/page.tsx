@@ -212,10 +212,10 @@ function FeatureGraphic({ canvasW, canvasH }: { canvasW: number; canvasH: number
       </div>
       <div style={{ position: "absolute", right: canvasW * 0.03, top: canvasH * 0.15, display: "flex", gap: canvasW * -0.02, zIndex: 1 }}>
         <div style={{ width: phoneW * 0.85, height: phoneH * 0.85, transform: "translateY(8%) rotate(-3deg)", opacity: 0.92, filter: "brightness(0.95)" }}>
-          <Phone src="/screenshots/tax-confirm.png" alt="Tax confirm" />
+          <Phone src="/screenshots-develop/tax-confirm.png" alt="Tax confirm" />
         </div>
         <div style={{ width: phoneW * 0.95, height: phoneH * 0.95, marginLeft: canvasW * -0.06, transform: "rotate(3deg)" }}>
-          <Phone src="/screenshots/home.png" alt="Home" />
+          <Phone src="/screenshots-develop/home.png" alt="Home" />
         </div>
       </div>
     </div>
