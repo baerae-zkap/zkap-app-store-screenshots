@@ -420,18 +420,20 @@ export default function ScreenshotsPage() {
             <h2 className="text-lg font-bold text-black">App Icon</h2>
           </div>
           <p className="text-xs text-gray-500 mb-6">Google Play: 512x512 PNG (32-bit, with alpha) · App Store: 1024x1024 PNG (no alpha)</p>
-          <div className="flex gap-8">
+          <div className="flex gap-8 items-end">
             {/* Play Store Icon */}
-            <div className="flex flex-col items-center gap-3 max-w-[160px]">
-              <ScaledPreview canvasW={ICON_PLAY} canvasH={ICON_PLAY} onClick={handleExportIconPlay} label={`Google Play — ${ICON_PLAY}x${ICON_PLAY}`}>
-                <AppIconCanvas size={ICON_PLAY} iconPath="/app-icon-play.png" />
-              </ScaledPreview>
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-[120px] h-[120px] rounded-2xl overflow-hidden border border-gray-200 cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all" onClick={handleExportIconPlay}>
+                <img src={img("/app-icon-play.png")} alt="Play Store Icon" className="w-full h-full object-cover" />
+              </div>
+              <p className="text-xs text-gray-500">Google Play — {ICON_PLAY}x{ICON_PLAY}</p>
             </div>
             {/* iOS Icon */}
-            <div className="flex flex-col items-center gap-3 max-w-[160px]">
-              <ScaledPreview canvasW={ICON_IOS} canvasH={ICON_IOS} onClick={handleExportIconIos} label={`App Store — ${ICON_IOS}x${ICON_IOS}`}>
-                <AppIconCanvas size={ICON_IOS} />
-              </ScaledPreview>
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-[120px] h-[120px] rounded-2xl overflow-hidden border border-gray-200 cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all" onClick={handleExportIconIos}>
+                <img src={img("/app-icon.png")} alt="App Store Icon" className="w-full h-full object-cover" />
+              </div>
+              <p className="text-xs text-gray-500">App Store — {ICON_IOS}x{ICON_IOS}</p>
             </div>
           </div>
         </section>
