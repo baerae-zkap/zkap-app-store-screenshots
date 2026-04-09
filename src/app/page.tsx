@@ -422,14 +422,14 @@ export default function ScreenshotsPage() {
           <p className="text-xs text-gray-500 mb-6">Google Play: 512x512 PNG (32-bit, with alpha) · App Store: 1024x1024 PNG (no alpha)</p>
           <div className="flex gap-8">
             {/* Play Store Icon */}
-            <div className="flex flex-col items-center gap-3">
-              <ScaledPreview canvasW={ICON_PLAY} canvasH={ICON_PLAY} onClick={handleExportIconPlay} label={`Google Play — ${ICON_PLAY}x${ICON_PLAY} (원본 다운로드)`}>
+            <div className="flex flex-col items-center gap-3 max-w-[160px]">
+              <ScaledPreview canvasW={ICON_PLAY} canvasH={ICON_PLAY} onClick={handleExportIconPlay} label={`Google Play — ${ICON_PLAY}x${ICON_PLAY}`}>
                 <AppIconCanvas size={ICON_PLAY} iconPath="/app-icon-play.png" />
               </ScaledPreview>
             </div>
             {/* iOS Icon */}
-            <div className="flex flex-col items-center gap-3">
-              <ScaledPreview canvasW={ICON_IOS} canvasH={ICON_IOS} onClick={handleExportIconIos} label={`App Store — ${ICON_IOS}x${ICON_IOS} (원본 다운로드)`}>
+            <div className="flex flex-col items-center gap-3 max-w-[160px]">
+              <ScaledPreview canvasW={ICON_IOS} canvasH={ICON_IOS} onClick={handleExportIconIos} label={`App Store — ${ICON_IOS}x${ICON_IOS}`}>
                 <AppIconCanvas size={ICON_IOS} />
               </ScaledPreview>
             </div>
