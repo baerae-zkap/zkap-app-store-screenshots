@@ -321,7 +321,15 @@ function ScaledPreview({ children, canvasW, canvasH, onClick, label }: { childre
 export default function ScreenshotsPage() {
   const [ready, setReady] = useState(false);
   const [iosSizeIdx, setIosSizeIdx] = useState(0);
-  const [version, setVersion] = useState<Version>("develop");
+  const [version, setVersion] = useState<Version>(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const lang = params.get("lang");
+      if (lang === "en") return "en";
+      if (lang === "ko") return "develop";
+    }
+    return "develop";
+  });
   const [exporting, setExporting] = useState(false);
 
   const slides = getSlides(version);
