@@ -51,9 +51,13 @@ const IMAGE_PATHS = [
   "/screenshots-develop/exchange.png",
   "/screenshots-develop/tax-confirm.png",
   "/screenshots-develop/agent-select.png",
+  "/screenshots-en/home.png",
+  "/screenshots-en/exchange.png",
+  "/screenshots-en/tax-confirm.png",
+  "/screenshots-en/agent-select.png",
 ];
 
-const VERSIONS = ["current", "develop"] as const;
+const VERSIONS = ["current", "develop", "en"] as const;
 type Version = typeof VERSIONS[number];
 
 const imageCache: Record<string, string> = {};
@@ -79,7 +83,7 @@ function img(path: string): string {
 
 /* ── Slides Definition ── */
 function getSlides(version: Version) {
-  const dir = version === "current" ? "/screenshots" : "/screenshots-develop";
+  const dir = version === "en" ? "/screenshots-en" : version === "current" ? "/screenshots" : "/screenshots-develop";
   return [
   {
     id: "home",
@@ -424,9 +428,8 @@ export default function ScreenshotsPage() {
             <h1 className="text-lg font-bold text-black">ZKAP Store Assets</h1>
           </div>
           <div className="flex items-center gap-2">
-            {/* TODO: UX 개선 ver 준비되면 주석 해제
             <div className="flex rounded-lg border overflow-hidden mr-2">
-              {VERSIONS.map((v) => (
+              {(["develop", "en"] as const).map((v) => (
                 <button
                   key={v}
                   onClick={() => setVersion(v)}
@@ -434,11 +437,10 @@ export default function ScreenshotsPage() {
                     version === v ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
                   }`}
                 >
-                  {v === "current" ? "UX 개선 ver" : "기존 ver"}
+                  {v === "develop" ? "한국어" : "English"}
                 </button>
               ))}
             </div>
-            */}
             {SECTIONS.map((s) => (
               <a
                 key={s.id}
