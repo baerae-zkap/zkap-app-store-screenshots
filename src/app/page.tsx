@@ -303,7 +303,7 @@ function ScaledPreview({ children, canvasW, canvasH, onClick, label }: { childre
 export default function ScreenshotsPage() {
   const [ready, setReady] = useState(false);
   const [iosSizeIdx, setIosSizeIdx] = useState(0);
-  const [version, setVersion] = useState<Version>("current");
+  const [version, setVersion] = useState<Version>("develop");
   const [exporting, setExporting] = useState(false);
 
   const slides = getSlides(version);
@@ -377,6 +377,7 @@ export default function ScreenshotsPage() {
             <h1 className="text-lg font-bold text-black">ZKAP Store Assets</h1>
           </div>
           <div className="flex items-center gap-2">
+            {/* TODO: UX 개선 ver 준비되면 주석 해제
             <div className="flex rounded-lg border overflow-hidden mr-2">
               {VERSIONS.map((v) => (
                 <button
@@ -390,6 +391,7 @@ export default function ScreenshotsPage() {
                 </button>
               ))}
             </div>
+            */}
             {SECTIONS.map((s) => (
               <a
                 key={s.id}
