@@ -84,35 +84,36 @@ function img(path: string): string {
 /* ── Slides Definition ── */
 function getSlides(version: Version) {
   const dir = version === "en" ? "/screenshots-en" : version === "current" ? "/screenshots" : "/screenshots-develop";
+  const isEn = version === "en";
   return [
   {
     id: "home",
-    label: "자산관리",
-    headline: "내 모든 거래소\n자산, 한눈에",
+    label: isEn ? "Portfolio" : "자산관리",
+    headline: isEn ? "All Your Exchange\nAssets, At a Glance" : "내 모든 거래소\n자산, 한눈에",
     screenshot: `${dir}/home.png`,
     bg: "linear-gradient(165deg, #2570cc 0%, #4DA0F7 40%, #7fc0ff 100%)",
     textColor: "#fff",
   },
   {
     id: "exchange",
-    label: "거래소 연동",
-    headline: "국내·해외 거래소\n한곳에서 연동",
+    label: isEn ? "Exchanges" : "거래소 연동",
+    headline: isEn ? "Connect All Your\nExchanges at Once" : "국내·해외 거래소\n한곳에서 연동",
     screenshot: `${dir}/exchange.png`,
     bg: "linear-gradient(165deg, #f8faff 0%, #e8f0fe 50%, #dbe7ff 100%)",
     textColor: "#1a1a2e",
   },
   {
     id: "tax-confirm",
-    label: "자산 수집",
-    headline: "해외 거래소 자산\n간편하게 수집",
+    label: isEn ? "Tax Report" : "자산 수집",
+    headline: isEn ? "Overseas Crypto\nTax Made Simple" : "해외 거래소 자산\n간편하게 수집",
     screenshot: `${dir}/tax-confirm.png`,
     bg: "linear-gradient(165deg, #1a2744 0%, #2a4b7a 50%, #3d6aab 100%)",
     textColor: "#fff",
   },
   {
     id: "agent-select",
-    label: "세무대리인",
-    headline: "세무대리인 선택부터\n신고까지 간편하게",
+    label: isEn ? "Tax Filing" : "세무대리인",
+    headline: isEn ? "From Tax Agent\nto Filing, All in App" : "세무대리인 선택부터\n신고까지 간편하게",
     screenshot: `${dir}/agent-select.png`,
     bg: "linear-gradient(165deg, #f0f4ff 0%, #e4ecff 50%, #d8e4ff 100%)",
     textColor: "#1a1a2e",
@@ -195,9 +196,10 @@ function Slide({ index, canvasW, canvasH, slides }: { index: number; canvasW: nu
 }
 
 /* ── Feature Graphic (1024x500) ── */
-function FeatureGraphic({ canvasW, canvasH }: { canvasW: number; canvasH: number }) {
+function FeatureGraphic({ canvasW, canvasH, isEn = false }: { canvasW: number; canvasH: number; isEn?: boolean }) {
   const phoneH = canvasH * 1.0;
   const phoneW = phoneH * (MK_W / MK_H);
+  const ssDir = isEn ? "/screenshots-en" : "/screenshots-develop";
   return (
     <div style={{ width: canvasW, height: canvasH, background: "linear-gradient(135deg, #1a3a6e 0%, #2d6bcf 50%, #4da0f7 100%)", position: "relative", overflow: "hidden", fontFamily: "Pretendard, -apple-system, sans-serif", display: "flex", alignItems: "center" }}>
       <div style={{ position: "absolute", top: "-30%", right: "5%", width: canvasH * 0.9, height: canvasH * 0.9, borderRadius: "50%", background: "radial-gradient(circle, rgba(107,175,255,0.25) 0%, transparent 70%)" }} />
@@ -207,19 +209,19 @@ function FeatureGraphic({ canvasW, canvasH }: { canvasW: number; canvasH: number
           <img src={img("/app-icon-play.png")} alt="ZKAP" style={{ width: canvasH * 0.14, height: canvasH * 0.14, borderRadius: canvasH * 0.03 }} />
           <span style={{ fontSize: canvasH * 0.09, fontWeight: 700, color: "#fff", letterSpacing: "0.02em" }}>ZKAP</span>
         </div>
-        <div style={{ fontSize: canvasH * 0.115, fontWeight: 700, color: "#fff", lineHeight: 1.25, letterSpacing: "-0.01em", whiteSpace: "pre-line" }}>
-          {"내 모든 거래소 자산,\n한눈에 관리하고\n간편하게 신고까지"}
+        <div style={{ fontSize: canvasH * (isEn ? 0.1 : 0.115), fontWeight: 700, color: "#fff", lineHeight: 1.25, letterSpacing: "-0.01em", whiteSpace: "pre-line" }}>
+          {isEn ? "All Your Exchanges,\nOne App.\nTax Filing Made Easy" : "내 모든 거래소 자산,\n한눈에 관리하고\n간편하게 신고까지"}
         </div>
         <div style={{ marginTop: canvasH * 0.05, fontSize: canvasH * 0.055, fontWeight: 500, color: "rgba(255,255,255,0.7)" }}>
-          해외 가상자산 신고 · 자산 통합 관리
+          {isEn ? "Overseas Crypto Tax · Unified Asset Management" : "해외 가상자산 신고 · 자산 통합 관리"}
         </div>
       </div>
       <div style={{ position: "absolute", right: canvasW * 0.03, top: canvasH * 0.15, display: "flex", gap: canvasW * -0.02, zIndex: 1 }}>
         <div style={{ width: phoneW * 0.85, height: phoneH * 0.85, transform: "translateY(8%) rotate(-3deg)", opacity: 0.92, filter: "brightness(0.95)" }}>
-          <Phone src="/screenshots-develop/tax-confirm.png" alt="Tax confirm" />
+          <Phone src={`${ssDir}/tax-confirm.png`} alt="Tax confirm" />
         </div>
         <div style={{ width: phoneW * 0.95, height: phoneH * 0.95, marginLeft: canvasW * -0.06, transform: "rotate(3deg)" }}>
-          <Phone src="/screenshots-develop/home.png" alt="Home" />
+          <Phone src={`${ssDir}/home.png`} alt="Home" />
         </div>
       </div>
     </div>
@@ -493,10 +495,10 @@ export default function ScreenshotsPage() {
           <p className="text-xs text-gray-500 mb-6">Google Play — {FG_W}x{FG_H} · JPG or 24-bit PNG (no alpha) · Max 1MB</p>
           <div className="max-w-2xl">
             <ScaledPreview canvasW={FG_W} canvasH={FG_H} onClick={handleExportFG} label={`${FG_W}x${FG_H} — click to export`}>
-              <FeatureGraphic canvasW={FG_W} canvasH={FG_H} />
+              <FeatureGraphic canvasW={FG_W} canvasH={FG_H} isEn={version === "en"} />
             </ScaledPreview>
             <div ref={(el) => { fgRef.current = el; }} style={{ position: "absolute", left: -9999, opacity: 0, width: FG_W, height: FG_H }}>
-              <FeatureGraphic canvasW={FG_W} canvasH={FG_H} />
+              <FeatureGraphic canvasW={FG_W} canvasH={FG_H} isEn={version === "en"} />
             </div>
           </div>
         </section>
