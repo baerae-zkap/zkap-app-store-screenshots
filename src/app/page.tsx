@@ -78,7 +78,7 @@ async function preloadAllImages() {
 }
 
 function img(path: string): string {
-  return imageCache[path] || path;
+  return imageCache[path] || `${BASE_PATH}${path}`;
 }
 
 /* ── Slides Definition ── */
