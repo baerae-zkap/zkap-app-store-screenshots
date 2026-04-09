@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { toPng } from "html-to-image";
+import JSZip from "jszip";
 
 /* ── Mockup measurements ── */
 const MK_W = 1022;
@@ -235,8 +236,7 @@ function waitForPaint(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
 }
 
-async function exportElement(el: HTMLDivElement, w: number, h: number, filename: string) {
-  // Make visible in viewport so browser fully paints it
+async function captureElement(el: HTMLDivElement, w: number, h: number): Promise<string> {
   el.style.position = "fixed";
   el.style.left = "0px";
   el.style.top = "0px";
@@ -246,16 +246,14 @@ async function exportElement(el: HTMLDivElement, w: number, h: number, filename:
   el.style.height = `${h}px`;
   el.style.pointerEvents = "none";
 
-  // Wait for browser to paint
   await waitForPaint();
   await new Promise((r) => setTimeout(r, 100));
 
   const opts = { width: w, height: h, pixelRatio: 1, cacheBust: true };
-  await toPng(el, opts); // warm-up
+  await toPng(el, opts);
   await waitForPaint();
   const dataUrl = await toPng(el, opts);
 
-  // Hide again
   el.style.position = "absolute";
   el.style.left = "-9999px";
   el.style.top = "";
@@ -263,10 +261,24 @@ async function exportElement(el: HTMLDivElement, w: number, h: number, filename:
   el.style.zIndex = "";
   el.style.pointerEvents = "";
 
+  return dataUrl;
+}
+
+async function exportElement(el: HTMLDivElement, w: number, h: number, filename: string) {
+  const dataUrl = await captureElement(el, w, h);
   const link = document.createElement("a");
   link.download = filename;
   link.href = dataUrl;
   link.click();
+}
+
+function dataUrlToBlob(dataUrl: string): Blob {
+  const [header, base64] = dataUrl.split(",");
+  const mime = header.match(/:(.*?);/)?.[1] || "image/png";
+  const bytes = atob(base64);
+  const arr = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+  return new Blob([arr], { type: mime });
 }
 
 /* ── Scaled Preview wrapper ── */
@@ -354,14 +366,49 @@ export default function ScreenshotsPage() {
   /* ── Export All ── */
   const handleExportAll = useCallback(async () => {
     setExporting(true);
+    const zip = new JSZip();
     const delay = () => new Promise((r) => setTimeout(r, 300));
-    await handleExportIconPlay(); await delay();
-    await handleExportIconIos(); await delay();
-    await handleExportFG(); await delay();
-    for (let i = 0; i < SLIDES.length; i++) { await handleExportIos(i); await delay(); }
-    for (let i = 0; i < SLIDES.length; i++) { await handleExportPlay(i); await delay(); }
+
+    // Icons
+    const playIconData = imageCache["/app-icon-play.png"];
+    const iosIconData = imageCache["/app-icon.png"];
+    if (playIconData) zip.file(`icons/app-icon-play-${ICON_PLAY}x${ICON_PLAY}.png`, dataUrlToBlob(playIconData));
+    if (iosIconData) zip.file(`icons/app-icon-ios-${ICON_IOS}x${ICON_IOS}.png`, dataUrlToBlob(iosIconData));
+
+    // Feature Graphic
+    if (fgRef.current) {
+      const fgData = await captureElement(fgRef.current, FG_W, FG_H);
+      zip.file(`feature-graphic/feature-graphic-${FG_W}x${FG_H}.png`, dataUrlToBlob(fgData));
+      await delay();
+    }
+
+    // iOS Screenshots
+    for (let i = 0; i < slides.length; i++) {
+      const el = iosRefs.current[i];
+      if (!el) continue;
+      const data = await captureElement(el, iosSize.w, iosSize.h);
+      zip.file(`ios/${String(i + 1).padStart(2, "0")}-${slides[i].id}-${iosSize.w}x${iosSize.h}.png`, dataUrlToBlob(data));
+      await delay();
+    }
+
+    // Play Screenshots
+    for (let i = 0; i < slides.length; i++) {
+      const el = playRefs.current[i];
+      if (!el) continue;
+      const data = await captureElement(el, PLAY_SS.w, PLAY_SS.h);
+      zip.file(`play/${String(i + 1).padStart(2, "0")}-${slides[i].id}-${PLAY_SS.w}x${PLAY_SS.h}.png`, dataUrlToBlob(data));
+      await delay();
+    }
+
+    const blob = await zip.generateAsync({ type: "blob" });
+    const link = document.createElement("a");
+    link.download = "zkap-store-assets.zip";
+    link.href = URL.createObjectURL(blob);
+    link.click();
+    URL.revokeObjectURL(link.href);
+
     setExporting(false);
-  }, [handleExportIconPlay, handleExportIconIos, handleExportFG, handleExportIos, handleExportPlay]);
+  }, [slides, iosSize]);
 
   if (!ready) {
     return <div className="flex items-center justify-center h-screen"><p className="text-gray-500 text-lg">Loading images...</p></div>;
