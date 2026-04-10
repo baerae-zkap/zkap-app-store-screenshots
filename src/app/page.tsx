@@ -143,7 +143,7 @@ async function captureAndDownload(el: HTMLDivElement, w: number, h: number, file
 }
 
 /* ── Scaled Slide Preview ── */
-function SlidePreview({ index, slides, device }: { index: number; slides: ReturnType<typeof getSlides>; device: "ios" | "ipad" }) {
+function SlidePreview({ index, slides, device, setExportRef }: { index: number; slides: ReturnType<typeof getSlides>; device: "ios" | "ipad"; setExportRef?: (i: number, el: HTMLDivElement | null) => void }) {
   const previewRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.15);
@@ -171,13 +171,10 @@ function SlidePreview({ index, slides, device }: { index: number; slides: Return
         </div>
       </div>
       {/* Offscreen export target */}
-      <div ref={exportRef} style={{ position: "absolute", left: -9999, opacity: 0, width: W, height: H }}>
+      <div ref={(el) => { exportRef.current = el; setExportRef?.(index, el); }} style={{ position: "absolute", left: -9999, opacity: 0, width: W, height: H }}>
         <MarketingSlide index={index} slides={slides} device={device} />
       </div>
-      <div className="flex items-center justify-between mt-2.5 px-1">
-        <p className="text-[12px] text-white/50">{slides[index].label}</p>
-        <span className="text-[11px] text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity">다운로드</span>
-      </div>
+      <p className="text-[12px] text-white/50 mt-2.5 px-1">{slides[index].label}</p>
     </div>
   );
 }
@@ -215,12 +212,33 @@ export default function Page() {
 
   const iosSlides = getSlides(lang, "ios");
   const ipadSlides = getSlides(lang, "ipad");
-  const iosDir = lang === "en" ? "/screenshots-en" : "/screenshots-develop";
-  const ipadDir = lang === "en" ? "/screenshots-ipad-en" : "/screenshots-ipad-ko";
 
-  const dlIos = useCallback(() => { downloadZip(iosSlides.map((s, i) => ({ name: `${String(i+1).padStart(2,"0")}-${s.id}.png`, src: img(s.screenshot) })), `zkap-ios-${lang}.zip`); }, [iosSlides, lang]);
-  const dlIpad = useCallback(() => { downloadZip(ipadSlides.map((s, i) => ({ name: `${String(i+1).padStart(2,"0")}-${s.id}.png`, src: img(s.screenshot) })), `zkap-ipad-${lang}.zip`); }, [ipadSlides, lang]);
-  const dlPlay = useCallback(() => { downloadZip(iosSlides.map((s, i) => ({ name: `${String(i+1).padStart(2,"0")}-${s.id}.png`, src: img(s.screenshot) })), `zkap-play-${lang}.zip`); }, [iosSlides, lang]);
+  const iosExportRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const ipadExportRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  const captureZip = useCallback(async (refs: React.RefObject<(HTMLDivElement | null)[]>, slides: ReturnType<typeof getSlides>, w: number, h: number, prefix: string) => {
+    const zip = new JSZip();
+    for (let i = 0; i < slides.length; i++) {
+      const el = refs.current?.[i];
+      if (!el) continue;
+      el.style.position = "fixed"; el.style.left = "0px"; el.style.top = "0px"; el.style.opacity = "1"; el.style.zIndex = "-9999"; el.style.pointerEvents = "none";
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      await new Promise((r) => setTimeout(r, 200));
+      const opts = { width: w, height: h, pixelRatio: 1, cacheBust: true };
+      await toPng(el, opts);
+      const dataUrl = await toPng(el, opts);
+      el.style.position = "absolute"; el.style.left = "-9999px"; el.style.top = ""; el.style.opacity = "0"; el.style.zIndex = ""; el.style.pointerEvents = "";
+      const [, base64] = dataUrl.split(",");
+      zip.file(`${String(i+1).padStart(2,"0")}-${slides[i].id}-${w}x${h}.png`, base64, { base64: true });
+      await new Promise((r) => setTimeout(r, 300));
+    }
+    const blob = await zip.generateAsync({ type: "blob" });
+    const a = document.createElement("a"); a.download = `zkap-${prefix}-${lang}.zip`; a.href = URL.createObjectURL(blob); a.click();
+  }, [lang]);
+
+  const dlIos = useCallback(() => captureZip(iosExportRefs, iosSlides, SLIDE_W, SLIDE_H, "ios"), [captureZip, iosSlides]);
+  const dlIpad = useCallback(() => captureZip(ipadExportRefs, ipadSlides, IPAD_SLIDE_W, IPAD_SLIDE_H, "ipad"), [captureZip, ipadSlides]);
+  const dlPlay = useCallback(() => captureZip(iosExportRefs, iosSlides, SLIDE_W, SLIDE_H, "play"), [captureZip, iosSlides]);
 
   if (!ready) return <div className="flex items-center justify-center h-screen bg-black"><div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>;
 
@@ -261,12 +279,12 @@ export default function Page() {
 
             <Sub title="iOS 스크린샷" desc="iPhone 6.3&quot; — 1206×2622px" onDownload={dlIos} />
             <div className="grid grid-cols-4 gap-4 mb-16">
-              {iosSlides.map((s, i) => (<SlidePreview key={s.id} index={i} slides={iosSlides} device="ios" />))}
+              {iosSlides.map((s, i) => (<SlidePreview key={s.id} index={i} slides={iosSlides} device="ios" setExportRef={(idx, el) => { iosExportRefs.current[idx] = el; }} />))}
             </div>
 
             <Sub title="iPad 스크린샷" desc={`13" iPad — ${IPAD_SIZE.w}×${IPAD_SIZE.h}px`} onDownload={dlIpad} />
             <div className="grid grid-cols-4 gap-4 mb-16">
-              {ipadSlides.map((s, i) => (<SlidePreview key={s.id} index={i} slides={ipadSlides} device="ipad" />))}
+              {ipadSlides.map((s, i) => (<SlidePreview key={s.id} index={i} slides={ipadSlides} device="ipad" setExportRef={(idx, el) => { ipadExportRefs.current[idx] = el; }} />))}
             </div>
           </section>
 
@@ -276,7 +294,7 @@ export default function Page() {
             <p className="text-[14px] text-white/35 mb-12">Google Play 스토어 등록에 필요한 에셋</p>
             <Sub title="스크린샷" desc="1206×2622px" onDownload={dlPlay} />
             <div className="grid grid-cols-4 gap-4 mb-16">
-              {iosSlides.map((s, i) => (<SlidePreview key={s.id} index={i} slides={iosSlides} device="ios" />))}
+              {iosSlides.map((s, i) => (<SlidePreview key={s.id} index={i} slides={iosSlides} device="ios" setExportRef={(idx, el) => { iosExportRefs.current[idx] = el; }} />))}
             </div>
           </section>
 
@@ -301,9 +319,9 @@ function IconBox({ label, desc, children, onClick }: { label: string; desc: stri
   return (
     <div className="group cursor-pointer" onClick={onClick}>
       <div className="bg-[#141420] rounded-2xl border border-white/[0.04] hover:border-white/[0.12] transition-all p-8 flex flex-col items-center justify-center gap-5 min-h-[200px]">{children}</div>
-      <div className="flex items-center justify-between mt-3 px-1">
-        <div><p className="text-[13px] text-white/70">{label}</p><p className="text-[11px] text-white/25 mt-0.5">{desc}</p></div>
-        <span className="text-[11px] text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity">다운로드</span>
+      <div className="mt-3 px-1">
+        <p className="text-[13px] text-white/70">{label}</p>
+        <p className="text-[11px] text-white/25 mt-0.5">{desc}</p>
       </div>
     </div>
   );
