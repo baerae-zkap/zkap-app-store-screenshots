@@ -33,8 +33,11 @@ const SECTIONS = [
   { id: "icon", label: "App Icon" },
   { id: "feature-graphic", label: "Feature Graphic" },
   { id: "ios-screenshots", label: "iOS Screenshots" },
+  { id: "ipad-screenshots", label: "iPad Screenshots" },
   { id: "play-screenshots", label: "Play Screenshots" },
 ] as const;
+
+const IPAD_SIZE = { w: 2064, h: 2752 };
 
 /* ── Image Preloader ── */
 const BASE_PATH = process.env.NODE_ENV === "production" ? "/zkap-app-store-screenshots" : "";
@@ -55,6 +58,14 @@ const IMAGE_PATHS = [
   "/screenshots-en/exchange.png",
   "/screenshots-en/tax-confirm.png",
   "/screenshots-en/agent-select.png",
+  "/screenshots-ipad-ko/home.png",
+  "/screenshots-ipad-ko/exchange.png",
+  "/screenshots-ipad-ko/tax-confirm.png",
+  "/screenshots-ipad-ko/complete.png",
+  "/screenshots-ipad-en/home.png",
+  "/screenshots-ipad-en/exchange.png",
+  "/screenshots-ipad-en/tax-confirm.png",
+  "/screenshots-ipad-en/complete.png",
 ];
 
 const VERSIONS = ["current", "develop", "en"] as const;
@@ -424,6 +435,58 @@ export default function ScreenshotsPage() {
     setExporting(false);
   }, [slides, iosSize]);
 
+  const handleSectionDownload = useCallback(async (section: string) => {
+    setExporting(true);
+    const zip = new JSZip();
+    const delay = () => new Promise((r) => setTimeout(r, 300));
+
+    if (section === "icons") {
+      const play = imageCache["/app-icon-play.png"];
+      const ios = imageCache["/app-icon.png"];
+      if (play) zip.file(`app-icon-play-${ICON_PLAY}x${ICON_PLAY}.png`, dataUrlToBlob(play));
+      if (ios) zip.file(`app-icon-ios-${ICON_IOS}x${ICON_IOS}.png`, dataUrlToBlob(ios));
+    } else if (section === "feature-graphic") {
+      if (fgRef.current) {
+        const data = await captureElement(fgRef.current, FG_W, FG_H);
+        zip.file(`feature-graphic-${FG_W}x${FG_H}.png`, dataUrlToBlob(data));
+      }
+    } else if (section === "ios") {
+      for (let i = 0; i < slides.length; i++) {
+        const el = iosRefs.current[i];
+        if (!el) continue;
+        const data = await captureElement(el, iosSize.w, iosSize.h);
+        zip.file(`${String(i + 1).padStart(2, "0")}-${slides[i].id}-${iosSize.w}x${iosSize.h}.png`, dataUrlToBlob(data));
+        await delay();
+      }
+    } else if (section === "ipad") {
+      const ipadDir = version === "en" ? "/screenshots-ipad-en" : "/screenshots-ipad-ko";
+      for (const id of ["home", "exchange", "tax-confirm", "complete"]) {
+        const src = img(`${ipadDir}/${id}.png`);
+        try {
+          const resp = await fetch(src);
+          const blob = await resp.blob();
+          zip.file(`ipad-${id}-${IPAD_SIZE.w}x${IPAD_SIZE.h}.png`, blob);
+        } catch { /* skip */ }
+      }
+    } else if (section === "play") {
+      for (let i = 0; i < slides.length; i++) {
+        const el = playRefs.current[i];
+        if (!el) continue;
+        const data = await captureElement(el, PLAY_SS.w, PLAY_SS.h);
+        zip.file(`${String(i + 1).padStart(2, "0")}-${slides[i].id}-${PLAY_SS.w}x${PLAY_SS.h}.png`, dataUrlToBlob(data));
+        await delay();
+      }
+    }
+
+    const blob = await zip.generateAsync({ type: "blob" });
+    const link = document.createElement("a");
+    link.download = `zkap-${section}.zip`;
+    link.href = URL.createObjectURL(blob);
+    link.click();
+    URL.revokeObjectURL(link.href);
+    setExporting(false);
+  }, [slides, iosSize, version]);
+
   if (!ready) {
     return <div className="flex items-center justify-center h-screen"><p className="text-gray-500 text-lg">Loading images...</p></div>;
   }
@@ -541,6 +604,30 @@ export default function ScreenshotsPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </section>
+
+        {/* ══════════ iPad Screenshots ══════════ */}
+        <section id="ipad-screenshots">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-lg font-bold text-black">iPad Screenshots</h2>
+            <button onClick={() => handleSectionDownload("ipad")} className="px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">Download ZIP</button>
+          </div>
+          <p className="text-xs text-gray-500 mb-6">13&quot; iPad — {IPAD_SIZE.w}x{IPAD_SIZE.h} · PNG</p>
+          <div className="grid grid-cols-4 gap-4">
+            {["home", "exchange", "tax-confirm", "complete"].map((id) => {
+              const ipadDir = version === "en" ? "/screenshots-ipad-en" : "/screenshots-ipad-ko";
+              const src = `${ipadDir}/${id}.png`;
+              return (
+                <div key={id} className="flex flex-col gap-2">
+                  <div className="rounded-xl border border-gray-200 overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all" style={{ aspectRatio: `${IPAD_SIZE.w}/${IPAD_SIZE.h}` }}
+                    onClick={() => { const link = document.createElement("a"); link.download = `ipad-${id}-${IPAD_SIZE.w}x${IPAD_SIZE.h}.png`; link.href = img(src); link.click(); }}>
+                    <img src={img(src)} alt={id} className="w-full h-full object-cover object-top" />
+                  </div>
+                  <p className="text-xs text-gray-500 text-center">{id} — {IPAD_SIZE.w}x{IPAD_SIZE.h}</p>
+                </div>
+              );
+            })}
           </div>
         </section>
 
