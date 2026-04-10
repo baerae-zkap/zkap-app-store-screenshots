@@ -165,7 +165,7 @@ function SlidePreview({ index, slides, device, setExportRef }: { index: number; 
 
   return (
     <div className="group">
-      <div ref={previewRef} className="relative overflow-hidden rounded-2xl border border-white/[0.04] hover:border-white/[0.12] transition-all cursor-pointer" style={{ aspectRatio: `${W}/${H}` }} onClick={handleExport}>
+      <div ref={previewRef} className="relative overflow-hidden rounded-2xl border border-white/[0.04] hover:border-white/15 hover:shadow-lg hover:shadow-white/5 transition-all cursor-pointer" style={{ aspectRatio: `${W}/${H}` }} onClick={handleExport}>
         <div style={{ transform: `scale(${scale})`, transformOrigin: "top left", width: W, height: H }}>
           <MarketingSlide index={index} slides={slides} device={device} />
         </div>
@@ -310,7 +310,7 @@ function Sub({ title, desc, onDownload }: { title: string; desc: string; onDownl
   return (
     <div className="flex items-end justify-between mb-5">
       <div><h3 className="text-[16px] font-semibold text-white/90 mb-1">{title}</h3><p className="text-[12px] text-white/30">{desc}</p></div>
-      {onDownload && <button onClick={onDownload} className="text-[12px] text-blue-400 hover:text-blue-300 border border-blue-400/20 hover:border-blue-400/40 px-3 py-1 rounded-full transition-all">ZIP 다운로드</button>}
+      {onDownload && <button onClick={onDownload} className="text-[12px] text-blue-400 hover:text-blue-300 hover:bg-blue-400/10 border border-blue-400/20 hover:border-blue-400/40 px-3 py-1 rounded-full transition-all cursor-pointer">ZIP 다운로드</button>}
     </div>
   );
 }
@@ -318,7 +318,7 @@ function Sub({ title, desc, onDownload }: { title: string; desc: string; onDownl
 function IconBox({ label, desc, children, onClick }: { label: string; desc: string; children: React.ReactNode; onClick: () => void }) {
   return (
     <div className="group cursor-pointer" onClick={onClick}>
-      <div className="bg-[#141420] rounded-2xl border border-white/[0.04] hover:border-white/[0.12] transition-all p-8 flex flex-col items-center justify-center gap-5 min-h-[200px]">{children}</div>
+      <div className="bg-[#141420] rounded-2xl border border-white/[0.04] hover:border-white/15 hover:shadow-lg hover:shadow-white/5 transition-all p-8 flex flex-col items-center justify-center gap-5 min-h-[200px] cursor-pointer">{children}</div>
       <div className="mt-3 px-1">
         <p className="text-[13px] text-white/70">{label}</p>
         <p className="text-[11px] text-white/25 mt-0.5">{desc}</p>
