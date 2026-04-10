@@ -1,657 +1,273 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { toPng } from "html-to-image";
 import JSZip from "jszip";
 
-/* ── Mockup measurements ── */
-const MK_W = 1022;
-const MK_H = 2082;
-const SC_L = (52 / MK_W) * 100;
-const SC_T = (46 / MK_H) * 100;
-const SC_W = (918 / MK_W) * 100;
-const SC_H = (1990 / MK_H) * 100;
-const SC_RX = (126 / 918) * 100;
-const SC_RY = (126 / 1990) * 100;
-
-/* ── Size Presets ── */
-const IOS_SIZES = [
-  { label: 'iPhone 6.9"', w: 1320, h: 2868 },
-  { label: 'iPhone 6.5"', w: 1284, h: 2778 },
-  { label: 'iPhone 6.3"', w: 1206, h: 2622 },
-  { label: 'iPhone 6.1"', w: 1125, h: 2436 },
-] as const;
-
-const PLAY_SS = { w: 1080, h: 1920 };
-const FG_W = 1024;
-const FG_H = 500;
-const ICON_PLAY = 512;
-const ICON_IOS = 1024;
-
-/* ── Section IDs ── */
-const SECTIONS = [
-  { id: "icon", label: "App Icon" },
-  { id: "feature-graphic", label: "Feature Graphic" },
-  { id: "ios-screenshots", label: "iOS Screenshots" },
-  { id: "ipad-screenshots", label: "iPad Screenshots" },
-  { id: "play-screenshots", label: "Play Screenshots" },
-] as const;
-
+/* ── Constants ── */
+const MK_W = 1022, MK_H = 2082;
+const SC_L = (52/MK_W)*100, SC_T = (46/MK_H)*100, SC_W = (918/MK_W)*100, SC_H = (1990/MK_H)*100;
+const SC_RX = (126/918)*100, SC_RY = (126/1990)*100;
 const IPAD_SIZE = { w: 2064, h: 2752 };
+const ICON_PLAY = 512, ICON_IOS = 1024;
+const SLIDE_W = 1320, SLIDE_H = 2868;
+const IPAD_SLIDE_W = 2064, IPAD_SLIDE_H = 2752;
 
-/* ── Image Preloader ── */
+type Lang = "ko" | "en";
 const BASE_PATH = process.env.NODE_ENV === "production" ? "/zkap-app-store-screenshots" : "";
 
+/* ── Preload ── */
 const IMAGE_PATHS = [
-  "/mockup.png",
-  "/app-icon.png",
-  "/app-icon-play.png",
-  "/screenshots/home.png",
-  "/screenshots/exchange.png",
-  "/screenshots/tax-confirm.png",
-  "/screenshots/agent-select.png",
-  "/screenshots-develop/home.png",
-  "/screenshots-develop/exchange.png",
-  "/screenshots-develop/tax-confirm.png",
-  "/screenshots-develop/agent-select.png",
-  "/screenshots-en/home.png",
-  "/screenshots-en/exchange.png",
-  "/screenshots-en/tax-confirm.png",
-  "/screenshots-en/agent-select.png",
-  "/screenshots-ipad-ko/home.png",
-  "/screenshots-ipad-ko/exchange.png",
-  "/screenshots-ipad-ko/tax-confirm.png",
-  "/screenshots-ipad-ko/complete.png",
-  "/screenshots-ipad-en/home.png",
-  "/screenshots-ipad-en/exchange.png",
-  "/screenshots-ipad-en/tax-confirm.png",
-  "/screenshots-ipad-en/complete.png",
+  "/mockup.png", "/app-icon.png", "/app-icon-play.png",
+  "/screenshots-develop/home.png", "/screenshots-develop/exchange.png", "/screenshots-develop/tax-confirm.png", "/screenshots-develop/agent-select.png",
+  "/screenshots-en/home.png", "/screenshots-en/exchange.png", "/screenshots-en/tax-confirm.png", "/screenshots-en/agent-select.png",
+  "/screenshots-ipad-ko/home.png", "/screenshots-ipad-ko/exchange.png", "/screenshots-ipad-ko/tax-confirm.png", "/screenshots-ipad-ko/complete.png",
+  "/screenshots-ipad-en/home.png", "/screenshots-ipad-en/exchange.png", "/screenshots-ipad-en/tax-confirm.png", "/screenshots-ipad-en/complete.png",
 ];
-
-const VERSIONS = ["current", "develop", "en"] as const;
-type Version = typeof VERSIONS[number];
-
 const imageCache: Record<string, string> = {};
-
 async function preloadAllImages() {
-  await Promise.all(
-    IMAGE_PATHS.map(async (path) => {
-      const resp = await fetch(`${BASE_PATH}${path}`);
-      const blob = await resp.blob();
-      const dataUrl = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(blob);
-      });
-      imageCache[path] = dataUrl;
-    })
-  );
+  await Promise.all(IMAGE_PATHS.map(async (p) => {
+    try { const r = await fetch(`${BASE_PATH}${p}`); const b = await r.blob(); imageCache[p] = await new Promise<string>((res) => { const fr = new FileReader(); fr.onloadend = () => res(fr.result as string); fr.readAsDataURL(b); }); } catch {}
+  }));
 }
+function img(p: string) { return imageCache[p] || `${BASE_PATH}${p}`; }
 
-function img(path: string): string {
-  return imageCache[path] || `${BASE_PATH}${path}`;
-}
+/* ── Slide Data ── */
+function getSlides(lang: Lang, device: "ios" | "ipad") {
+  const iosDir = lang === "en" ? "/screenshots-en" : "/screenshots-develop";
+  const ipadDir = lang === "en" ? "/screenshots-ipad-en" : "/screenshots-ipad-ko";
+  const dir = device === "ipad" ? ipadDir : iosDir;
+  const isEn = lang === "en";
+  const screens = device === "ipad"
+    ? [{ id: "home", ss: "home" }, { id: "exchange", ss: "exchange" }, { id: "tax-confirm", ss: "tax-confirm" }, { id: "complete", ss: "complete" }]
+    : [{ id: "home", ss: "home" }, { id: "exchange", ss: "exchange" }, { id: "tax-confirm", ss: "tax-confirm" }, { id: "agent-select", ss: "agent-select" }];
 
-/* ── Slides Definition ── */
-function getSlides(version: Version) {
-  const dir = version === "en" ? "/screenshots-en" : version === "current" ? "/screenshots" : "/screenshots-develop";
-  const isEn = version === "en";
-  return [
-  {
-    id: "home",
-    label: isEn ? "Portfolio" : "자산관리",
-    headline: isEn ? "All Your Exchange\nAssets, At a Glance" : "내 모든 거래소\n자산, 한눈에",
-    screenshot: `${dir}/home.png`,
-    bg: "linear-gradient(165deg, #2570cc 0%, #4DA0F7 40%, #7fc0ff 100%)",
-    textColor: "#fff",
-  },
-  {
-    id: "exchange",
-    label: isEn ? "Exchanges" : "거래소 연동",
-    headline: isEn ? "Connect All Your\nExchanges at Once" : "국내·해외 거래소\n한곳에서 연동",
-    screenshot: `${dir}/exchange.png`,
-    bg: "linear-gradient(165deg, #f8faff 0%, #e8f0fe 50%, #dbe7ff 100%)",
-    textColor: "#1a1a2e",
-  },
-  {
-    id: "tax-confirm",
-    label: isEn ? "Tax Report" : "자산 수집",
-    headline: isEn ? "Overseas Crypto\nTax Made Simple" : "해외 거래소 자산\n간편하게 수집",
-    screenshot: `${dir}/tax-confirm.png`,
-    bg: "linear-gradient(165deg, #1a2744 0%, #2a4b7a 50%, #3d6aab 100%)",
-    textColor: "#fff",
-  },
-  {
-    id: "agent-select",
-    label: isEn ? "Tax Filing" : "세무대리인",
-    headline: isEn ? "From Tax Agent\nto Filing, All in App" : "세무대리인 선택부터\n신고까지 간편하게",
-    screenshot: `${dir}/agent-select.png`,
-    bg: "linear-gradient(165deg, #f0f4ff 0%, #e4ecff 50%, #d8e4ff 100%)",
-    textColor: "#1a1a2e",
-  },
+  const copy = [
+    { label: isEn ? "Portfolio" : "자산관리", headline: isEn ? "All Your Exchange\nAssets, At a Glance" : "내 모든 거래소\n자산, 한눈에" },
+    { label: isEn ? "Exchanges" : "거래소 연동", headline: isEn ? "Connect All Your\nExchanges at Once" : "국내·해외 거래소\n한곳에서 연동" },
+    { label: isEn ? "Tax Report" : "자산 수집", headline: isEn ? "Overseas Crypto\nTax Made Simple" : "해외 거래소 자산\n간편하게 수집" },
+    { label: isEn ? "Tax Filing" : "세무대리인", headline: isEn ? "From Tax Agent\nto Filing, All in App" : "세무대리인 선택부터\n신고까지 간편하게" },
   ];
+  const bgs = [
+    { bg: "linear-gradient(165deg, #2570cc 0%, #4DA0F7 40%, #7fc0ff 100%)", color: "#fff" },
+    { bg: "linear-gradient(165deg, #f8faff 0%, #e8f0fe 50%, #dbe7ff 100%)", color: "#1a1a2e" },
+    { bg: "linear-gradient(165deg, #1a2744 0%, #2a4b7a 50%, #3d6aab 100%)", color: "#fff" },
+    { bg: "linear-gradient(165deg, #f0f4ff 0%, #e4ecff 50%, #d8e4ff 100%)", color: "#1a1a2e" },
+  ];
+  return screens.map((s, i) => ({ ...s, ...copy[i], ...bgs[i], screenshot: `${dir}/${s.ss}.png` }));
 }
 
-const SLIDES = getSlides("current");
-
-const DECO: { top: string; left?: string; right?: string; size: number; bg: string }[] = [
+const DECO = [
   { top: "15%", right: "-20%", size: 0.8, bg: "rgba(107,155,255,0.3)" },
   { top: "auto", left: "-15%", size: 0.6, bg: "rgba(59,107,245,0.08)" },
   { top: "40%", left: "-10%", size: 0.7, bg: "rgba(59,107,245,0.2)" },
   { top: "20%", right: "-15%", size: 0.6, bg: "rgba(59,107,245,0.1)" },
 ];
 
-/* ── Phone Component ── */
+/* ── Phone Mockup ── */
 function Phone({ src, alt, style, className = "" }: { src: string; alt: string; style?: React.CSSProperties; className?: string }) {
   return (
     <div className={`relative ${className}`} style={{ aspectRatio: `${MK_W}/${MK_H}`, ...style }}>
       <img src={img("/mockup.png")} alt="" className="block w-full h-full" draggable={false} />
-      <div
-        className="absolute z-10 overflow-hidden"
-        style={{ left: `${SC_L}%`, top: `${SC_T}%`, width: `${SC_W}%`, height: `${SC_H}%`, borderRadius: `${SC_RX}% / ${SC_RY}%` }}
-      >
+      <div className="absolute z-10 overflow-hidden" style={{ left: `${SC_L}%`, top: `${SC_T}%`, width: `${SC_W}%`, height: `${SC_H}%`, borderRadius: `${SC_RX}% / ${SC_RY}%` }}>
         <img src={img(src)} alt={alt} className="block w-full h-full object-cover object-top" draggable={false} />
       </div>
     </div>
   );
 }
 
-/* ── Caption Component ── */
-function Caption({ label, headline, color, canvasW }: { label: string; headline: string; color: string; canvasW: number }) {
+/* ── iPad Mockup (CSS-only) ── */
+function IPad({ src, alt, style, className = "" }: { src: string; alt: string; style?: React.CSSProperties; className?: string }) {
   return (
-    <div style={{ padding: `0 ${canvasW * 0.06}px` }}>
-      <div style={{ fontSize: canvasW * 0.032, fontWeight: 600, color, opacity: 0.7, marginBottom: canvasW * 0.015, letterSpacing: "0.02em" }}>{label}</div>
-      <div style={{ fontSize: canvasW * 0.085, fontWeight: 700, color, lineHeight: 1.15, letterSpacing: "-0.01em", whiteSpace: "pre-line" }}>{headline}</div>
+    <div className={`relative ${className}`} style={{ aspectRatio: "770/1000", ...style }}>
+      <div style={{ width: "100%", height: "100%", borderRadius: "5%/3.6%", background: "linear-gradient(180deg,#2C2C2E,#1C1C1E)", position: "relative", overflow: "hidden", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.1),0 8px 40px rgba(0,0,0,0.6)" }}>
+        <div style={{ position: "absolute", top: "1.2%", left: "50%", transform: "translateX(-50%)", width: "0.9%", height: "0.65%", borderRadius: "50%", background: "#111113", border: "1px solid rgba(255,255,255,0.08)", zIndex: 20 }} />
+        <div style={{ position: "absolute", left: "4%", top: "2.8%", width: "92%", height: "94.4%", borderRadius: "2.2%/1.6%", overflow: "hidden", background: "#000" }}>
+          <img src={img(src)} alt={alt} style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }} draggable={false} />
+        </div>
+      </div>
     </div>
   );
 }
 
-/* ── Generic Slide ── */
-function Slide({ index, canvasW, canvasH, slides }: { index: number; canvasW: number; canvasH: number; slides: ReturnType<typeof getSlides> }) {
+/* ── Marketing Slide (live rendered) ── */
+function MarketingSlide({ index, slides, device }: { index: number; slides: ReturnType<typeof getSlides>; device: "ios" | "ipad" }) {
   const s = slides[index];
   const d = DECO[index];
-  // Adjust phone size & position based on aspect ratio (Play 1.78:1 vs iOS ~2.17:1)
-  const ratio = canvasH / canvasW;
-  const isCompact = ratio < 2; // Play Store (16:9)
-  const phoneWidth = isCompact ? "75%" : "88%";
-  const phoneTranslateY = isCompact ? "18%" : "10%";
-  const textFontScale = isCompact ? 0.085 : 0.095;
-  const labelFontScale = isCompact ? 0.032 : 0.036;
+  const W = device === "ipad" ? IPAD_SLIDE_W : SLIDE_W;
+  const H = device === "ipad" ? IPAD_SLIDE_H : SLIDE_H;
+  const phoneW = device === "ipad" ? "68%" : "88%";
+  const phoneY = device === "ipad" ? "8%" : "10%";
+  const labelSize = W * (device === "ipad" ? 0.028 : 0.036);
+  const headSize = W * (device === "ipad" ? 0.065 : 0.095);
+
   return (
-    <div style={{ width: canvasW, height: canvasH, background: s.bg, position: "relative", overflow: "hidden", fontFamily: "Pretendard, -apple-system, sans-serif" }}>
-      <div
-        style={{
-          position: "absolute",
-          top: d.top === "auto" ? undefined : d.top,
-          bottom: d.top === "auto" ? "10%" : undefined,
-          left: d.left,
-          right: d.right,
-          width: canvasW * d.size,
-          height: canvasW * d.size,
-          borderRadius: "50%",
-          background: index === 3 ? undefined : `radial-gradient(circle, ${d.bg} 0%, transparent 70%)`,
-          border: index === 3 ? `2px solid ${d.bg}` : undefined,
-        }}
-      />
-      <div style={{ paddingTop: canvasH * 0.07 }}>
-        <div style={{ padding: `0 ${canvasW * 0.06}px` }}>
-          <div style={{ fontSize: canvasW * labelFontScale, fontWeight: 600, color: s.textColor, opacity: 0.7, marginBottom: canvasW * 0.015, letterSpacing: "0.02em" }}>{s.label}</div>
-          <div style={{ fontSize: canvasW * textFontScale, fontWeight: 700, color: s.textColor, lineHeight: 1.15, letterSpacing: "-0.01em", whiteSpace: "pre-line" }}>{s.headline}</div>
+    <div style={{ width: W, height: H, background: s.bg, position: "relative", overflow: "hidden", fontFamily: "Pretendard,-apple-system,sans-serif" }}>
+      <div style={{ position: "absolute", top: d.top === "auto" ? undefined : d.top, bottom: d.top === "auto" ? "10%" : undefined, left: d.left, right: d.right, width: W * d.size, height: W * d.size, borderRadius: "50%", background: index === 3 ? undefined : `radial-gradient(circle,${d.bg} 0%,transparent 70%)`, border: index === 3 ? `2px solid ${d.bg}` : undefined }} />
+      <div style={{ paddingTop: H * 0.07 }}>
+        <div style={{ padding: `0 ${W * 0.06}px` }}>
+          <div style={{ fontSize: labelSize, fontWeight: 600, color: s.color, opacity: 0.7, marginBottom: W * 0.015, letterSpacing: "0.02em" }}>{s.label}</div>
+          <div style={{ fontSize: headSize, fontWeight: 700, color: s.color, lineHeight: 1.15, letterSpacing: "-0.01em", whiteSpace: "pre-line" }}>{s.headline}</div>
         </div>
       </div>
-      <div style={{ position: "absolute", bottom: 0, left: "50%", transform: `translateX(-50%) translateY(${phoneTranslateY})`, width: phoneWidth }}>
-        <Phone src={s.screenshot} alt={s.id} />
+      <div style={{ position: "absolute", bottom: 0, left: "50%", transform: `translateX(-50%) translateY(${phoneY})`, width: phoneW }}>
+        {device === "ipad" ? <IPad src={s.screenshot} alt={s.id} /> : <Phone src={s.screenshot} alt={s.id} />}
       </div>
     </div>
   );
 }
 
-/* ── Feature Graphic (1024x500) ── */
-function FeatureGraphic({ canvasW, canvasH, isEn = false }: { canvasW: number; canvasH: number; isEn?: boolean }) {
-  const phoneH = canvasH * 1.0;
-  const phoneW = phoneH * (MK_W / MK_H);
-  const ssDir = isEn ? "/screenshots-en" : "/screenshots-develop";
-  return (
-    <div style={{ width: canvasW, height: canvasH, background: "linear-gradient(135deg, #1a3a6e 0%, #2d6bcf 50%, #4da0f7 100%)", position: "relative", overflow: "hidden", fontFamily: "Pretendard, -apple-system, sans-serif", display: "flex", alignItems: "center" }}>
-      <div style={{ position: "absolute", top: "-30%", right: "5%", width: canvasH * 0.9, height: canvasH * 0.9, borderRadius: "50%", background: "radial-gradient(circle, rgba(107,175,255,0.25) 0%, transparent 70%)" }} />
-      <div style={{ position: "absolute", bottom: "-40%", left: "10%", width: canvasH * 0.7, height: canvasH * 0.7, borderRadius: "50%", background: "radial-gradient(circle, rgba(59,107,245,0.2) 0%, transparent 70%)" }} />
-      <div style={{ flex: 1, paddingLeft: canvasW * 0.06, paddingRight: canvasW * 0.02, zIndex: 1 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: canvasW * 0.015, marginBottom: canvasH * 0.06 }}>
-          <img src={img("/app-icon-play.png")} alt="ZKAP" style={{ width: canvasH * 0.14, height: canvasH * 0.14, borderRadius: canvasH * 0.03 }} />
-          <span style={{ fontSize: canvasH * 0.09, fontWeight: 700, color: "#fff", letterSpacing: "0.02em" }}>ZKAP</span>
-        </div>
-        <div style={{ fontSize: canvasH * (isEn ? 0.1 : 0.115), fontWeight: 700, color: "#fff", lineHeight: 1.25, letterSpacing: "-0.01em", whiteSpace: "pre-line" }}>
-          {isEn ? "All Your Exchanges,\nOne App.\nTax Filing Made Easy" : "내 모든 거래소 자산,\n한눈에 관리하고\n간편하게 신고까지"}
-        </div>
-        <div style={{ marginTop: canvasH * 0.05, fontSize: canvasH * 0.055, fontWeight: 500, color: "rgba(255,255,255,0.7)" }}>
-          {isEn ? "Overseas Crypto Tax · Unified Asset Management" : "해외 가상자산 신고 · 자산 통합 관리"}
-        </div>
-      </div>
-      <div style={{ position: "absolute", right: canvasW * 0.03, top: canvasH * 0.15, display: "flex", gap: canvasW * -0.02, zIndex: 1 }}>
-        <div style={{ width: phoneW * 0.85, height: phoneH * 0.85, transform: "translateY(8%) rotate(-3deg)", opacity: 0.92, filter: "brightness(0.95)" }}>
-          <Phone src={`${ssDir}/tax-confirm.png`} alt="Tax confirm" />
-        </div>
-        <div style={{ width: phoneW * 0.95, height: phoneH * 0.95, marginLeft: canvasW * -0.06, transform: "rotate(3deg)" }}>
-          <Phone src={`${ssDir}/home.png`} alt="Home" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ── App Icon Canvas ── */
-function AppIconCanvas({ size, iconPath = "/app-icon.png" }: { size: number; iconPath?: string }) {
-  return (
-    <div style={{ width: size, height: size, position: "relative" }}>
-      <img src={img(iconPath)} alt="ZKAP Icon" style={{ width: size, height: size, display: "block" }} draggable={false} />
-    </div>
-  );
-}
-
-/* ── Generic export helper ── */
-function waitForPaint(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-}
-
-async function captureElement(el: HTMLDivElement, w: number, h: number): Promise<string> {
-  el.style.position = "fixed";
-  el.style.left = "0px";
-  el.style.top = "0px";
-  el.style.opacity = "1";
-  el.style.zIndex = "-9999";
-  el.style.width = `${w}px`;
-  el.style.height = `${h}px`;
-  el.style.pointerEvents = "none";
-
-  await waitForPaint();
-  await new Promise((r) => setTimeout(r, 100));
-
-  const opts = { width: w, height: h, pixelRatio: 1, cacheBust: true };
-  await toPng(el, opts);
-  await waitForPaint();
-  const dataUrl = await toPng(el, opts);
-
-  el.style.position = "absolute";
-  el.style.left = "-9999px";
-  el.style.top = "";
-  el.style.opacity = "0";
-  el.style.zIndex = "";
-  el.style.pointerEvents = "";
-
-  return dataUrl;
-}
-
-async function exportElement(el: HTMLDivElement, w: number, h: number, filename: string) {
-  const dataUrl = await captureElement(el, w, h);
-  const link = document.createElement("a");
-  link.download = filename;
-  link.href = dataUrl;
-  link.click();
-}
-
-function dataUrlToBlob(dataUrl: string): Blob {
-  const [header, base64] = dataUrl.split(",");
-  const mime = header.match(/:(.*?);/)?.[1] || "image/png";
-  const bytes = atob(base64);
-  const arr = new Uint8Array(bytes.length);
-  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
-  return new Blob([arr], { type: mime });
-}
-
-/* ── Scaled Preview wrapper ── */
-function ScaledPreview({ children, canvasW, canvasH, onClick, label }: { children: React.ReactNode; canvasW: number; canvasH: number; onClick: () => void; label: string }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0.2);
+/* ── Scaled Slide Preview ── */
+function SlidePreview({ index, slides, device, onDownload }: { index: number; slides: ReturnType<typeof getSlides>; device: "ios" | "ipad"; onDownload: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(0.15);
+  const W = device === "ipad" ? IPAD_SLIDE_W : SLIDE_W;
+  const H = device === "ipad" ? IPAD_SLIDE_H : SLIDE_H;
 
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const obs = new ResizeObserver(([entry]) => setScale(entry.contentRect.width / canvasW));
-    obs.observe(container);
+    const el = ref.current;
+    if (!el) return;
+    const obs = new ResizeObserver(([e]) => setScale(e.contentRect.width / W));
+    obs.observe(el);
     return () => obs.disconnect();
-  }, [canvasW]);
+  }, [W]);
 
   return (
-    <div className="flex flex-col gap-2">
-      <div
-        ref={containerRef}
-        className="relative overflow-hidden rounded-xl border border-white/[0.06] cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all"
-        style={{ aspectRatio: `${canvasW}/${canvasH}` }}
-        onClick={onClick}
-      >
-        <div style={{ transform: `scale(${scale})`, transformOrigin: "top left", width: canvasW, height: canvasH }}>
-          {children}
+    <div className="group">
+      <div ref={ref} className="relative overflow-hidden rounded-2xl border border-white/[0.04] hover:border-white/[0.12] transition-all cursor-pointer" style={{ aspectRatio: `${W}/${H}` }} onClick={onDownload}>
+        <div style={{ transform: `scale(${scale})`, transformOrigin: "top left", width: W, height: H }}>
+          <MarketingSlide index={index} slides={slides} device={device} />
         </div>
       </div>
-      <p className="text-xs text-white/40 text-center">{label}</p>
+      <div className="flex items-center justify-between mt-2.5 px-1">
+        <p className="text-[12px] text-white/50">{slides[index].label}</p>
+        <span className="text-[11px] text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity">다운로드</span>
+      </div>
     </div>
   );
 }
 
-/* ── Main Page ── */
-export default function ScreenshotsPage() {
+/* ── Download helpers ── */
+async function downloadZip(files: { name: string; src: string }[], zipName: string) {
+  const zip = new JSZip();
+  for (const f of files) { try { zip.file(f.name, await (await fetch(f.src)).blob()); } catch {} }
+  const a = document.createElement("a"); a.download = zipName; a.href = URL.createObjectURL(await zip.generateAsync({ type: "blob" })); a.click();
+}
+function dl(src: string, name: string) { const a = document.createElement("a"); a.download = name; a.href = src; a.click(); }
+
+/* ── Nav ── */
+const NAV = [
+  { id: "brand", label: "브랜드 아이덴티티" },
+  { id: "appstore", label: "App Store" },
+  { id: "playstore", label: "Play Store" },
+];
+
+/* ── Page ── */
+export default function Page() {
   const [ready, setReady] = useState(false);
-  const [iosSizeIdx, setIosSizeIdx] = useState(0);
-  const [version, setVersion] = useState<Version>(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const lang = params.get("lang");
-      if (lang === "en") return "en";
-      if (lang === "ko") return "develop";
-    }
-    return "develop";
+  const [lang, setLang] = useState<Lang>(() => {
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("lang") === "en") return "en";
+    return "ko";
   });
-  const [exporting, setExporting] = useState(false);
+  const [activeNav, setActiveNav] = useState("brand");
 
-  const slides = getSlides(version);
-
-  // Export refs
-  const iosRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const playRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const fgRef = useRef<HTMLDivElement | null>(null);
-
-  const iosSize = IOS_SIZES[iosSizeIdx];
-
+  useEffect(() => { preloadAllImages().then(() => setReady(true)); }, []);
   useEffect(() => {
-    preloadAllImages().then(() => setReady(true));
-  }, []);
+    const obs = new IntersectionObserver((entries) => { entries.forEach((e) => { if (e.isIntersecting) setActiveNav(e.target.id); }); }, { rootMargin: "-40% 0px -60% 0px" });
+    NAV.forEach(({ id }) => { const el = document.getElementById(id); if (el) obs.observe(el); });
+    return () => obs.disconnect();
+  }, [ready]);
 
-  /* ── Individual export handlers ── */
-  const handleExportIos = useCallback(async (index: number) => {
-    const el = iosRefs.current[index];
-    if (!el) return;
-    await exportElement(el, iosSize.w, iosSize.h, `ios-${String(index + 1).padStart(2, "0")}-${slides[index].id}-${iosSize.w}x${iosSize.h}.png`);
-  }, [iosSize]);
+  const iosSlides = getSlides(lang, "ios");
+  const ipadSlides = getSlides(lang, "ipad");
+  const iosDir = lang === "en" ? "/screenshots-en" : "/screenshots-develop";
+  const ipadDir = lang === "en" ? "/screenshots-ipad-en" : "/screenshots-ipad-ko";
 
-  const handleExportPlay = useCallback(async (index: number) => {
-    const el = playRefs.current[index];
-    if (!el) return;
-    await exportElement(el, PLAY_SS.w, PLAY_SS.h, `play-${String(index + 1).padStart(2, "0")}-${slides[index].id}-${PLAY_SS.w}x${PLAY_SS.h}.png`);
-  }, []);
+  const dlIos = useCallback(() => { downloadZip(iosSlides.map((s, i) => ({ name: `${String(i+1).padStart(2,"0")}-${s.id}.png`, src: img(s.screenshot) })), `zkap-ios-${lang}.zip`); }, [iosSlides, lang]);
+  const dlIpad = useCallback(() => { downloadZip(ipadSlides.map((s, i) => ({ name: `${String(i+1).padStart(2,"0")}-${s.id}.png`, src: img(s.screenshot) })), `zkap-ipad-${lang}.zip`); }, [ipadSlides, lang]);
+  const dlPlay = useCallback(() => { downloadZip(iosSlides.map((s, i) => ({ name: `${String(i+1).padStart(2,"0")}-${s.id}.png`, src: img(s.screenshot) })), `zkap-play-${lang}.zip`); }, [iosSlides, lang]);
 
-  const handleExportFG = useCallback(async () => {
-    if (!fgRef.current) return;
-    await exportElement(fgRef.current, FG_W, FG_H, `feature-graphic-${FG_W}x${FG_H}.png`);
-  }, []);
-
-  const handleExportIconPlay = useCallback(() => {
-    const link = document.createElement("a");
-    link.download = `app-icon-play-${ICON_PLAY}x${ICON_PLAY}.png`;
-    link.href = img("/app-icon-play.png");
-    link.click();
-  }, []);
-
-  const handleExportIconIos = useCallback(() => {
-    const link = document.createElement("a");
-    link.download = `app-icon-ios-${ICON_IOS}x${ICON_IOS}.png`;
-    link.href = img("/app-icon.png");
-    link.click();
-  }, []);
-
-  /* ── Export All ── */
-  const handleExportAll = useCallback(async () => {
-    setExporting(true);
-    const zip = new JSZip();
-    const delay = () => new Promise((r) => setTimeout(r, 300));
-
-    // Icons
-    const playIconData = imageCache["/app-icon-play.png"];
-    const iosIconData = imageCache["/app-icon.png"];
-    if (playIconData) zip.file(`icons/app-icon-play-${ICON_PLAY}x${ICON_PLAY}.png`, dataUrlToBlob(playIconData));
-    if (iosIconData) zip.file(`icons/app-icon-ios-${ICON_IOS}x${ICON_IOS}.png`, dataUrlToBlob(iosIconData));
-
-    // Feature Graphic
-    if (fgRef.current) {
-      const fgData = await captureElement(fgRef.current, FG_W, FG_H);
-      zip.file(`feature-graphic/feature-graphic-${FG_W}x${FG_H}.png`, dataUrlToBlob(fgData));
-      await delay();
-    }
-
-    // iOS Screenshots
-    for (let i = 0; i < slides.length; i++) {
-      const el = iosRefs.current[i];
-      if (!el) continue;
-      const data = await captureElement(el, iosSize.w, iosSize.h);
-      zip.file(`ios/${String(i + 1).padStart(2, "0")}-${slides[i].id}-${iosSize.w}x${iosSize.h}.png`, dataUrlToBlob(data));
-      await delay();
-    }
-
-    // Play Screenshots
-    for (let i = 0; i < slides.length; i++) {
-      const el = playRefs.current[i];
-      if (!el) continue;
-      const data = await captureElement(el, PLAY_SS.w, PLAY_SS.h);
-      zip.file(`play/${String(i + 1).padStart(2, "0")}-${slides[i].id}-${PLAY_SS.w}x${PLAY_SS.h}.png`, dataUrlToBlob(data));
-      await delay();
-    }
-
-    const blob = await zip.generateAsync({ type: "blob" });
-    const link = document.createElement("a");
-    link.download = "zkap-store-assets.zip";
-    link.href = URL.createObjectURL(blob);
-    link.click();
-    URL.revokeObjectURL(link.href);
-
-    setExporting(false);
-  }, [slides, iosSize]);
-
-  const handleSectionDownload = useCallback(async (section: string) => {
-    setExporting(true);
-    const zip = new JSZip();
-    const delay = () => new Promise((r) => setTimeout(r, 300));
-
-    if (section === "icons") {
-      const play = imageCache["/app-icon-play.png"];
-      const ios = imageCache["/app-icon.png"];
-      if (play) zip.file(`app-icon-play-${ICON_PLAY}x${ICON_PLAY}.png`, dataUrlToBlob(play));
-      if (ios) zip.file(`app-icon-ios-${ICON_IOS}x${ICON_IOS}.png`, dataUrlToBlob(ios));
-    } else if (section === "feature-graphic") {
-      if (fgRef.current) {
-        const data = await captureElement(fgRef.current, FG_W, FG_H);
-        zip.file(`feature-graphic-${FG_W}x${FG_H}.png`, dataUrlToBlob(data));
-      }
-    } else if (section === "ios") {
-      for (let i = 0; i < slides.length; i++) {
-        const el = iosRefs.current[i];
-        if (!el) continue;
-        const data = await captureElement(el, iosSize.w, iosSize.h);
-        zip.file(`${String(i + 1).padStart(2, "0")}-${slides[i].id}-${iosSize.w}x${iosSize.h}.png`, dataUrlToBlob(data));
-        await delay();
-      }
-    } else if (section === "ipad") {
-      const ipadDir = version === "en" ? "/screenshots-ipad-en" : "/screenshots-ipad-ko";
-      for (const id of ["home", "exchange", "tax-confirm", "complete"]) {
-        const src = img(`${ipadDir}/${id}.png`);
-        try {
-          const resp = await fetch(src);
-          const blob = await resp.blob();
-          zip.file(`ipad-${id}-${IPAD_SIZE.w}x${IPAD_SIZE.h}.png`, blob);
-        } catch { /* skip */ }
-      }
-    } else if (section === "play") {
-      for (let i = 0; i < slides.length; i++) {
-        const el = playRefs.current[i];
-        if (!el) continue;
-        const data = await captureElement(el, PLAY_SS.w, PLAY_SS.h);
-        zip.file(`${String(i + 1).padStart(2, "0")}-${slides[i].id}-${PLAY_SS.w}x${PLAY_SS.h}.png`, dataUrlToBlob(data));
-        await delay();
-      }
-    }
-
-    const blob = await zip.generateAsync({ type: "blob" });
-    const link = document.createElement("a");
-    link.download = `zkap-${section}.zip`;
-    link.href = URL.createObjectURL(blob);
-    link.click();
-    URL.revokeObjectURL(link.href);
-    setExporting(false);
-  }, [slides, iosSize, version]);
-
-  if (!ready) {
-    return <div className="flex items-center justify-center h-screen"><p className="text-white/40 text-lg">Loading images...</p></div>;
-  }
+  if (!ready) return <div className="flex items-center justify-center h-screen bg-black"><div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>;
 
   return (
-    <div className="min-h-screen bg-[#0a0a14]">
-      {/* ── Sticky Header ── */}
-      <div className="sticky top-0 z-50 bg-[#0a0a14]/80 backdrop-blur border-b border-white/[0.06]">
-        <div className="max-w-6xl mx-auto px-8 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src={img("/app-icon.png")} alt="ZKAP" className="w-8 h-8 rounded-lg" />
-            <h1 className="text-lg font-bold text-white">ZKAP Store Assets</h1>
+    <div className="min-h-screen bg-black text-white">
+      <main className="max-w-[1100px] mx-auto px-6 py-16 flex gap-16">
+        {/* Nav */}
+        <nav className="w-44 shrink-0 sticky top-16 self-start">
+          <div className="mb-8">
+            <div className="flex items-center gap-2.5"><img src={img("/app-icon.png")} alt="" className="w-6 h-6 rounded-md" /><span className="text-[13px] font-semibold text-white/80">ZKAP</span></div>
+            <p className="text-[11px] text-white/25 mt-1">Brand Resources</p>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="flex rounded-lg border overflow-hidden mr-2">
-              {(["develop", "en"] as const).map((v) => (
-                <button
-                  key={v}
-                  onClick={() => setVersion(v)}
-                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                    version === v ? "bg-blue-600 text-white" : "bg-white/5 text-white/40 hover:bg-[#0a0a14]"
-                  }`}
-                >
-                  {v === "develop" ? "한국어" : "English"}
-                </button>
-              ))}
+          <div className="mb-8">
+            {NAV.map(({ id, label }) => (<a key={id} href={`#${id}`} className={`block py-2 text-[13px] transition-colors ${activeNav === id ? "text-white" : "text-white/30 hover:text-white/60"}`}>{label}</a>))}
+          </div>
+          <div className="flex rounded-lg overflow-hidden border border-white/[0.08]">
+            {(["ko", "en"] as const).map((l) => (<button key={l} onClick={() => setLang(l)} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors ${lang === l ? "bg-white/10 text-white" : "text-white/25 hover:text-white/40"}`}>{l === "ko" ? "한국어" : "English"}</button>))}
+          </div>
+        </nav>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          {/* Brand */}
+          <section id="brand" className="pb-24">
+            <h2 className="text-[28px] font-bold mb-2">브랜드 아이덴티티</h2>
+            <p className="text-[14px] text-white/35 mb-12">ZKAP의 브랜드 로고 및 앱 아이콘 리소스입니다.</p>
+            <Sub title="앱 아이콘" desc="앱스토어 및 플레이스토어 등록용 아이콘" />
+            <div className="grid grid-cols-2 gap-4 mb-16">
+              <IconBox label="App Store" desc={`${ICON_IOS}×${ICON_IOS} · PNG`} onClick={() => dl(img("/app-icon.png"), `zkap-icon-ios.png`)}><img src={img("/app-icon.png")} alt="" className="w-24 h-24 rounded-[20px]" /></IconBox>
+              <IconBox label="Google Play" desc={`${ICON_PLAY}×${ICON_PLAY} · PNG`} onClick={() => dl(img("/app-icon-play.png"), `zkap-icon-play.png`)}><img src={img("/app-icon-play.png")} alt="" className="w-24 h-24 rounded-[20px]" /></IconBox>
             </div>
-            {SECTIONS.map((s) => (
-              <a
-                key={s.id}
-                href={`#${s.id}`}
-                className="px-3 py-1.5 text-xs font-medium text-white/40 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-              >
-                {s.label}
-              </a>
-            ))}
-            <button
-              onClick={handleExportAll}
-              disabled={exporting}
-              className="ml-2 px-4 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 disabled:opacity-50"
-            >
-              {exporting ? "Exporting..." : "Export All"}
-            </button>
-          </div>
+          </section>
+
+          {/* App Store */}
+          <section id="appstore" className="pb-24">
+            <h2 className="text-[28px] font-bold mb-2">App Store</h2>
+            <p className="text-[14px] text-white/35 mb-12">iOS 앱 심사에 필요한 스크린샷 및 에셋</p>
+
+            <Sub title="iOS 스크린샷" desc="iPhone 6.3&quot; — 1206×2622px" onDownload={dlIos} />
+            <div className="grid grid-cols-4 gap-4 mb-16">
+              {iosSlides.map((s, i) => (<SlidePreview key={s.id} index={i} slides={iosSlides} device="ios" onDownload={() => dl(img(s.screenshot), `ios-${s.id}.png`)} />))}
+            </div>
+
+            <Sub title="iPad 스크린샷" desc={`13" iPad — ${IPAD_SIZE.w}×${IPAD_SIZE.h}px`} onDownload={dlIpad} />
+            <div className="grid grid-cols-4 gap-4 mb-16">
+              {ipadSlides.map((s, i) => (<SlidePreview key={s.id} index={i} slides={ipadSlides} device="ipad" onDownload={() => dl(img(s.screenshot), `ipad-${s.id}.png`)} />))}
+            </div>
+          </section>
+
+          {/* Play Store */}
+          <section id="playstore" className="pb-24">
+            <h2 className="text-[28px] font-bold mb-2">Play Store</h2>
+            <p className="text-[14px] text-white/35 mb-12">Google Play 스토어 등록에 필요한 에셋</p>
+            <Sub title="스크린샷" desc="1206×2622px" onDownload={dlPlay} />
+            <div className="grid grid-cols-4 gap-4 mb-16">
+              {iosSlides.map((s, i) => (<SlidePreview key={s.id} index={i} slides={iosSlides} device="ios" onDownload={() => dl(img(s.screenshot), `play-${s.id}.png`)} />))}
+            </div>
+          </section>
+
+          <div className="text-center text-white/15 text-[11px] py-12 border-t border-white/[0.04]">ZKAP Brand Resources · BaeRae Inc.</div>
         </div>
-      </div>
+      </main>
+    </div>
+  );
+}
 
-      <div className="max-w-6xl mx-auto px-8 py-8 space-y-16">
+/* ── Sub Components ── */
+function Sub({ title, desc, onDownload }: { title: string; desc: string; onDownload?: () => void }) {
+  return (
+    <div className="flex items-end justify-between mb-5">
+      <div><h3 className="text-[16px] font-semibold text-white/90 mb-1">{title}</h3><p className="text-[12px] text-white/30">{desc}</p></div>
+      {onDownload && <button onClick={onDownload} className="text-[12px] text-blue-400 hover:text-blue-300 border border-blue-400/20 hover:border-blue-400/40 px-3 py-1 rounded-full transition-all">ZIP 다운로드</button>}
+    </div>
+  );
+}
 
-        {/* ══════════ 1. App Icon ══════════ */}
-        <section id="icon">
-          <div className="flex items-baseline gap-3 mb-1">
-            <h2 className="text-lg font-bold text-white">App Icon</h2>
-          </div>
-          <p className="text-xs text-white/40 mb-6">Google Play: 512x512 PNG (32-bit, with alpha) · App Store: 1024x1024 PNG (no alpha)</p>
-          <div className="flex gap-8 items-end">
-            {/* Play Store Icon */}
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-[120px] h-[120px] rounded-2xl overflow-hidden border border-white/[0.06] cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all" onClick={handleExportIconPlay}>
-                <img src={img("/app-icon-play.png")} alt="Play Store Icon" className="w-full h-full object-cover" />
-              </div>
-              <p className="text-xs text-white/40">Google Play — {ICON_PLAY}x{ICON_PLAY}</p>
-            </div>
-            {/* iOS Icon */}
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-[120px] h-[120px] rounded-2xl overflow-hidden border border-white/[0.06] cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all" onClick={handleExportIconIos}>
-                <img src={img("/app-icon.png")} alt="App Store Icon" className="w-full h-full object-cover" />
-              </div>
-              <p className="text-xs text-white/40">App Store — {ICON_IOS}x{ICON_IOS}</p>
-            </div>
-          </div>
-        </section>
-
-        {/* ══════════ 2. Feature Graphic ══════════ */}
-        <section id="feature-graphic">
-          <h2 className="text-lg font-bold text-white mb-1">Feature Graphic</h2>
-          <p className="text-xs text-white/40 mb-6">Google Play — {FG_W}x{FG_H} · JPG or 24-bit PNG (no alpha) · Max 1MB</p>
-          <div className="max-w-2xl">
-            <ScaledPreview canvasW={FG_W} canvasH={FG_H} onClick={handleExportFG} label={`${FG_W}x${FG_H} — click to export`}>
-              <FeatureGraphic canvasW={FG_W} canvasH={FG_H} isEn={version === "en"} />
-            </ScaledPreview>
-            <div ref={(el) => { fgRef.current = el; }} style={{ position: "absolute", left: -9999, opacity: 0, width: FG_W, height: FG_H }}>
-              <FeatureGraphic canvasW={FG_W} canvasH={FG_H} isEn={version === "en"} />
-            </div>
-          </div>
-        </section>
-
-        {/* ══════════ 3. iOS Screenshots ══════════ */}
-        <section id="ios-screenshots">
-          <div className="flex items-center gap-4 mb-1">
-            <h2 className="text-lg font-bold text-white">iOS Screenshots</h2>
-            <select
-              value={iosSizeIdx}
-              onChange={(e) => setIosSizeIdx(Number(e.target.value))}
-              className="px-3 py-1.5 rounded-lg border text-xs font-medium text-gray-700"
-            >
-              {IOS_SIZES.map((s, i) => (
-                <option key={i} value={i}>{s.label} ({s.w}x{s.h})</option>
-              ))}
-            </select>
-          </div>
-          <p className="text-xs text-white/40 mb-2">App Store Connect — 6.9" 기준 업로드 시 자동 다운스케일</p>
-          <p className="text-xs text-blue-600 font-medium mb-6">Export 사이즈: {iosSize.w}x{iosSize.h}px ({IOS_SIZES[iosSizeIdx].label}) — 프리뷰 비율은 거의 동일하나 export 픽셀이 다릅니다</p>
-          <div className="grid grid-cols-4 gap-6">
-            {SLIDES.map((s, i) => (
-              <div key={`ios-${i}-${iosSizeIdx}`}>
-                <ScaledPreview canvasW={iosSize.w} canvasH={iosSize.h} onClick={() => handleExportIos(i)} label={`${s.id} — ${iosSize.w}x${iosSize.h}`}>
-                  <Slide index={i} canvasW={iosSize.w} canvasH={iosSize.h} slides={slides} />
-                </ScaledPreview>
-                <div
-                  ref={(el) => { iosRefs.current[i] = el; }}
-                  style={{ position: "absolute", left: -9999, opacity: 0, width: iosSize.w, height: iosSize.h }}
-                >
-                  <Slide index={i} canvasW={iosSize.w} canvasH={iosSize.h} slides={slides} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ══════════ iPad Screenshots ══════════ */}
-        <section id="ipad-screenshots">
-          <div className="flex items-center justify-between mb-1">
-            <h2 className="text-lg font-bold text-white">iPad Screenshots</h2>
-            <button onClick={() => handleSectionDownload("ipad")} className="px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">Download ZIP</button>
-          </div>
-          <p className="text-xs text-white/40 mb-6">13&quot; iPad — {IPAD_SIZE.w}x{IPAD_SIZE.h} · PNG</p>
-          <div className="grid grid-cols-4 gap-4">
-            {["home", "exchange", "tax-confirm", "complete"].map((id) => {
-              const ipadDir = version === "en" ? "/screenshots-ipad-en" : "/screenshots-ipad-ko";
-              const src = `${ipadDir}/${id}.png`;
-              return (
-                <div key={id} className="flex flex-col gap-2">
-                  <div className="rounded-xl border border-white/[0.06] overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all" style={{ aspectRatio: `${IPAD_SIZE.w}/${IPAD_SIZE.h}` }}
-                    onClick={() => { const link = document.createElement("a"); link.download = `ipad-${id}-${IPAD_SIZE.w}x${IPAD_SIZE.h}.png`; link.href = img(src); link.click(); }}>
-                    <img src={img(src)} alt={id} className="w-full h-full object-cover object-top" />
-                  </div>
-                  <p className="text-xs text-white/40 text-center">{id} — {IPAD_SIZE.w}x{IPAD_SIZE.h}</p>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* ══════════ 4. Google Play Screenshots ══════════ */}
-        <section id="play-screenshots">
-          <h2 className="text-lg font-bold text-white mb-1">Google Play Screenshots</h2>
-          <p className="text-xs text-white/40 mb-6">{PLAY_SS.w}x{PLAY_SS.h} · JPEG or 24-bit PNG (no alpha) · 2~8장 · Max 8MB each</p>
-          <div className="grid grid-cols-4 gap-6">
-            {SLIDES.map((s, i) => (
-              <div key={`play-${i}`}>
-                <ScaledPreview canvasW={PLAY_SS.w} canvasH={PLAY_SS.h} onClick={() => handleExportPlay(i)} label={`${s.id} — ${PLAY_SS.w}x${PLAY_SS.h}`}>
-                  <Slide index={i} canvasW={PLAY_SS.w} canvasH={PLAY_SS.h} slides={slides} />
-                </ScaledPreview>
-                <div
-                  ref={(el) => { playRefs.current[i] = el; }}
-                  style={{ position: "absolute", left: -9999, opacity: 0, width: PLAY_SS.w, height: PLAY_SS.h }}
-                >
-                  <Slide index={i} canvasW={PLAY_SS.w} canvasH={PLAY_SS.h} slides={slides} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
+function IconBox({ label, desc, children, onClick }: { label: string; desc: string; children: React.ReactNode; onClick: () => void }) {
+  return (
+    <div className="group cursor-pointer" onClick={onClick}>
+      <div className="bg-[#141420] rounded-2xl border border-white/[0.04] hover:border-white/[0.12] transition-all p-8 flex flex-col items-center justify-center gap-5 min-h-[200px]">{children}</div>
+      <div className="flex items-center justify-between mt-3 px-1">
+        <div><p className="text-[13px] text-white/70">{label}</p><p className="text-[11px] text-white/25 mt-0.5">{desc}</p></div>
+        <span className="text-[11px] text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity">다운로드</span>
       </div>
     </div>
   );
