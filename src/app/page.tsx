@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { toPng } from "html-to-image";
 import JSZip from "jszip";
 
 /* ── Constants ── */
@@ -81,7 +82,7 @@ function IPad({ src, alt, style, className = "" }: { src: string; alt: string; s
     <div className={`relative ${className}`} style={{ aspectRatio: "770/1000", ...style }}>
       <div style={{ width: "100%", height: "100%", borderRadius: "5%/3.6%", background: "linear-gradient(180deg,#2C2C2E,#1C1C1E)", position: "relative", overflow: "hidden", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.1),0 8px 40px rgba(0,0,0,0.6)" }}>
         <div style={{ position: "absolute", top: "1.2%", left: "50%", transform: "translateX(-50%)", width: "0.9%", height: "0.65%", borderRadius: "50%", background: "#111113", border: "1px solid rgba(255,255,255,0.08)", zIndex: 20 }} />
-        <div style={{ position: "absolute", left: "4%", top: "2.8%", width: "92%", height: "94.4%", borderRadius: "2.2%/1.6%", overflow: "hidden", background: "#000" }}>
+        <div style={{ position: "absolute", left: "2.5%", top: "2%", width: "95%", height: "96%", borderRadius: "2.2%/1.6%", overflow: "hidden", background: "#000" }}>
           <img src={img(src)} alt={alt} style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }} draggable={false} />
         </div>
       </div>
@@ -95,8 +96,8 @@ function MarketingSlide({ index, slides, device }: { index: number; slides: Retu
   const d = DECO[index];
   const W = device === "ipad" ? IPAD_SLIDE_W : SLIDE_W;
   const H = device === "ipad" ? IPAD_SLIDE_H : SLIDE_H;
-  const phoneW = device === "ipad" ? "68%" : "88%";
-  const phoneY = device === "ipad" ? "8%" : "10%";
+  const phoneW = device === "ipad" ? "78%" : "88%";
+  const phoneY = device === "ipad" ? "6%" : "10%";
   const labelSize = W * (device === "ipad" ? 0.028 : 0.036);
   const headSize = W * (device === "ipad" ? 0.065 : 0.095);
 
@@ -116,27 +117,62 @@ function MarketingSlide({ index, slides, device }: { index: number; slides: Retu
   );
 }
 
+/* ── Capture helper ── */
+async function captureAndDownload(el: HTMLDivElement, w: number, h: number, filename: string) {
+  el.style.position = "fixed";
+  el.style.left = "0px";
+  el.style.top = "0px";
+  el.style.opacity = "1";
+  el.style.zIndex = "-9999";
+  el.style.pointerEvents = "none";
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  await new Promise((r) => setTimeout(r, 200));
+  const opts = { width: w, height: h, pixelRatio: 1, cacheBust: true };
+  await toPng(el, opts);
+  const dataUrl = await toPng(el, opts);
+  el.style.position = "absolute";
+  el.style.left = "-9999px";
+  el.style.top = "";
+  el.style.opacity = "0";
+  el.style.zIndex = "";
+  el.style.pointerEvents = "";
+  const a = document.createElement("a");
+  a.download = filename;
+  a.href = dataUrl;
+  a.click();
+}
+
 /* ── Scaled Slide Preview ── */
-function SlidePreview({ index, slides, device, onDownload }: { index: number; slides: ReturnType<typeof getSlides>; device: "ios" | "ipad"; onDownload: () => void }) {
-  const ref = useRef<HTMLDivElement>(null);
+function SlidePreview({ index, slides, device }: { index: number; slides: ReturnType<typeof getSlides>; device: "ios" | "ipad" }) {
+  const previewRef = useRef<HTMLDivElement>(null);
+  const exportRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.15);
   const W = device === "ipad" ? IPAD_SLIDE_W : SLIDE_W;
   const H = device === "ipad" ? IPAD_SLIDE_H : SLIDE_H;
 
   useEffect(() => {
-    const el = ref.current;
+    const el = previewRef.current;
     if (!el) return;
     const obs = new ResizeObserver(([e]) => setScale(e.contentRect.width / W));
     obs.observe(el);
     return () => obs.disconnect();
   }, [W]);
 
+  const handleExport = async () => {
+    if (!exportRef.current) return;
+    await captureAndDownload(exportRef.current, W, H, `${device}-${String(index + 1).padStart(2, "0")}-${slides[index].id}-${W}x${H}.png`);
+  };
+
   return (
     <div className="group">
-      <div ref={ref} className="relative overflow-hidden rounded-2xl border border-white/[0.04] hover:border-white/[0.12] transition-all cursor-pointer" style={{ aspectRatio: `${W}/${H}` }} onClick={onDownload}>
+      <div ref={previewRef} className="relative overflow-hidden rounded-2xl border border-white/[0.04] hover:border-white/[0.12] transition-all cursor-pointer" style={{ aspectRatio: `${W}/${H}` }} onClick={handleExport}>
         <div style={{ transform: `scale(${scale})`, transformOrigin: "top left", width: W, height: H }}>
           <MarketingSlide index={index} slides={slides} device={device} />
         </div>
+      </div>
+      {/* Offscreen export target */}
+      <div ref={exportRef} style={{ position: "absolute", left: -9999, opacity: 0, width: W, height: H }}>
+        <MarketingSlide index={index} slides={slides} device={device} />
       </div>
       <div className="flex items-center justify-between mt-2.5 px-1">
         <p className="text-[12px] text-white/50">{slides[index].label}</p>
@@ -225,12 +261,12 @@ export default function Page() {
 
             <Sub title="iOS 스크린샷" desc="iPhone 6.3&quot; — 1206×2622px" onDownload={dlIos} />
             <div className="grid grid-cols-4 gap-4 mb-16">
-              {iosSlides.map((s, i) => (<SlidePreview key={s.id} index={i} slides={iosSlides} device="ios" onDownload={() => dl(img(s.screenshot), `ios-${s.id}.png`)} />))}
+              {iosSlides.map((s, i) => (<SlidePreview key={s.id} index={i} slides={iosSlides} device="ios" />))}
             </div>
 
             <Sub title="iPad 스크린샷" desc={`13" iPad — ${IPAD_SIZE.w}×${IPAD_SIZE.h}px`} onDownload={dlIpad} />
             <div className="grid grid-cols-4 gap-4 mb-16">
-              {ipadSlides.map((s, i) => (<SlidePreview key={s.id} index={i} slides={ipadSlides} device="ipad" onDownload={() => dl(img(s.screenshot), `ipad-${s.id}.png`)} />))}
+              {ipadSlides.map((s, i) => (<SlidePreview key={s.id} index={i} slides={ipadSlides} device="ipad" />))}
             </div>
           </section>
 
@@ -240,7 +276,7 @@ export default function Page() {
             <p className="text-[14px] text-white/35 mb-12">Google Play 스토어 등록에 필요한 에셋</p>
             <Sub title="스크린샷" desc="1206×2622px" onDownload={dlPlay} />
             <div className="grid grid-cols-4 gap-4 mb-16">
-              {iosSlides.map((s, i) => (<SlidePreview key={s.id} index={i} slides={iosSlides} device="ios" onDownload={() => dl(img(s.screenshot), `play-${s.id}.png`)} />))}
+              {iosSlides.map((s, i) => (<SlidePreview key={s.id} index={i} slides={iosSlides} device="ios" />))}
             </div>
           </section>
 
