@@ -117,6 +117,42 @@ function MarketingSlide({ index, slides, device }: { index: number; slides: Retu
   );
 }
 
+/* ── Feature Graphic (1024x500) ── */
+const FG_W = 1024, FG_H = 500;
+
+function FeatureGraphic({ lang }: { lang: Lang }) {
+  const isEn = lang === "en";
+  const ssDir = isEn ? "/screenshots-en" : "/screenshots-develop";
+  const phoneH = FG_H * 1.0;
+  const phoneW = phoneH * (MK_W / MK_H);
+  return (
+    <div style={{ width: FG_W, height: FG_H, background: "linear-gradient(135deg, #1a3a6e 0%, #2d6bcf 50%, #4da0f7 100%)", position: "relative", overflow: "hidden", fontFamily: "Pretendard,-apple-system,sans-serif", display: "flex", alignItems: "center" }}>
+      <div style={{ position: "absolute", top: "-30%", right: "5%", width: FG_H * 0.9, height: FG_H * 0.9, borderRadius: "50%", background: "radial-gradient(circle, rgba(107,175,255,0.25) 0%, transparent 70%)" }} />
+      <div style={{ position: "absolute", bottom: "-40%", left: "10%", width: FG_H * 0.7, height: FG_H * 0.7, borderRadius: "50%", background: "radial-gradient(circle, rgba(59,107,245,0.2) 0%, transparent 70%)" }} />
+      <div style={{ flex: 1, paddingLeft: FG_W * 0.06, paddingRight: FG_W * 0.02, zIndex: 1 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: FG_W * 0.015, marginBottom: FG_H * 0.06 }}>
+          <img src={img("/app-icon-play.png")} alt="ZKAP" style={{ width: FG_H * 0.14, height: FG_H * 0.14, borderRadius: FG_H * 0.03 }} />
+          <span style={{ fontSize: FG_H * 0.09, fontWeight: 700, color: "#fff", letterSpacing: "0.02em" }}>ZKAP</span>
+        </div>
+        <div style={{ fontSize: FG_H * (isEn ? 0.1 : 0.115), fontWeight: 700, color: "#fff", lineHeight: 1.25, letterSpacing: "-0.01em", whiteSpace: "pre-line" }}>
+          {isEn ? "All Your Exchanges,\nOne App.\nTax Filing Made Easy" : "내 모든 거래소 자산,\n한눈에 관리하고\n간편하게 신고까지"}
+        </div>
+        <div style={{ marginTop: FG_H * 0.05, fontSize: FG_H * 0.055, fontWeight: 500, color: "rgba(255,255,255,0.7)" }}>
+          {isEn ? "Overseas Crypto Tax · Unified Asset Management" : "해외 가상자산 신고 · 자산 통합 관리"}
+        </div>
+      </div>
+      <div style={{ position: "absolute", right: FG_W * 0.03, top: FG_H * 0.15, display: "flex", gap: FG_W * -0.02, zIndex: 1 }}>
+        <div style={{ width: phoneW * 0.85, height: phoneH * 0.85, transform: "translateY(8%) rotate(-3deg)", opacity: 0.92, filter: "brightness(0.95)" }}>
+          <Phone src={`${ssDir}/tax-confirm.png`} alt="Tax" />
+        </div>
+        <div style={{ width: phoneW * 0.95, height: phoneH * 0.95, marginLeft: FG_W * -0.06, transform: "rotate(3deg)" }}>
+          <Phone src={`${ssDir}/home.png`} alt="Home" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Capture helper ── */
 async function captureAndDownload(el: HTMLDivElement, w: number, h: number, filename: string) {
   el.style.position = "fixed";
@@ -143,6 +179,39 @@ async function captureAndDownload(el: HTMLDivElement, w: number, h: number, file
 }
 
 /* ── Scaled Slide Preview ── */
+function FeatureGraphicPreview({ lang }: { lang: Lang }) {
+  const previewRef = useRef<HTMLDivElement>(null);
+  const exportRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(0.5);
+
+  useEffect(() => {
+    const el = previewRef.current;
+    if (!el) return;
+    const obs = new ResizeObserver(([e]) => setScale(e.contentRect.width / FG_W));
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  const handleExport = async () => {
+    if (!exportRef.current) return;
+    await captureAndDownload(exportRef.current, FG_W, FG_H, `feature-graphic-${FG_W}x${FG_H}.png`);
+  };
+
+  return (
+    <div className="mb-16">
+      <div ref={previewRef} className="relative overflow-hidden rounded-2xl border border-white/[0.04] hover:border-white/15 hover:shadow-lg hover:shadow-white/5 transition-all cursor-pointer" style={{ aspectRatio: `${FG_W}/${FG_H}` }} onClick={handleExport}>
+        <div style={{ transform: `scale(${scale})`, transformOrigin: "top left", width: FG_W, height: FG_H }}>
+          <FeatureGraphic lang={lang} />
+        </div>
+      </div>
+      <div ref={exportRef} style={{ position: "absolute", left: -9999, opacity: 0, width: FG_W, height: FG_H }}>
+        <FeatureGraphic lang={lang} />
+      </div>
+      <p className="text-[12px] text-white/50 mt-2.5 px-1">Feature Graphic</p>
+    </div>
+  );
+}
+
 function SlidePreview({ index, slides, device, setExportRef }: { index: number; slides: ReturnType<typeof getSlides>; device: "ios" | "ipad"; setExportRef?: (i: number, el: HTMLDivElement | null) => void }) {
   const previewRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
@@ -292,6 +361,10 @@ export default function Page() {
           <section id="playstore" className="pb-24">
             <h2 className="text-[28px] font-bold mb-2">Play Store</h2>
             <p className="text-[14px] text-white/35 mb-12">Google Play 스토어 등록에 필요한 에셋</p>
+
+            <Sub title="그래픽 이미지" desc={`${FG_W}×${FG_H}px · JPG or PNG (no alpha)`} />
+            <FeatureGraphicPreview lang={lang} />
+
             <Sub title="스크린샷" desc="1206×2622px" onDownload={dlPlay} />
             <div className="grid grid-cols-4 gap-4 mb-16">
               {iosSlides.map((s, i) => (<SlidePreview key={s.id} index={i} slides={iosSlides} device="ios" setExportRef={(idx, el) => { iosExportRefs.current[idx] = el; }} />))}
