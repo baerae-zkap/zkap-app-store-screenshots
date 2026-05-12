@@ -349,7 +349,7 @@ export default function Page() {
             <h2 className="text-[28px] font-bold mb-2">App Store</h2>
             <p className="text-[14px] text-white/35 mb-12">iOS 앱 심사에 필요한 스크린샷 및 에셋</p>
 
-            <Sub title={`iOS 스크린샷 — 6.9" (필수)`} desc={`${SLIDE_W}×${SLIDE_H}px · iPhone 16 Pro Max`} onDownload={dlIos} />
+            <Sub title={`iOS 스크린샷 — 6.9"`} desc={`${SLIDE_W}×${SLIDE_H}px · iPhone 16 Pro Max`} onDownload={dlIos} />
             <div className="grid grid-cols-4 gap-4 mb-6">
               {iosSlides.map((s, i) => (<SlidePreview key={s.id} index={i} slides={iosSlides} device="ios" setExportRef={(idx, el) => { iosExportRefs.current[idx] = el; }} />))}
             </div>
