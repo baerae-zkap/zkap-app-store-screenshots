@@ -46,7 +46,7 @@ function getSlides(lang: Lang, device: "ios" | "ipad") {
     { label: isEn ? "Portfolio" : "자산관리", headline: isEn ? "All Your Exchange\nAssets, At a Glance" : "내 모든 거래소\n자산, 한눈에" },
     { label: isEn ? "Exchanges" : "거래소 연동", headline: isEn ? "Connect All Your\nExchanges at Once" : "국내·해외 거래소\n한곳에서 연동" },
     { label: isEn ? "Tax Report" : "자산 수집", headline: isEn ? "Overseas Crypto\nTax Made Simple" : "해외 거래소 자산\n간편하게 수집" },
-    { label: isEn ? "Tax Filing" : "세무대리인", headline: isEn ? "From Tax Agent\nto Filing, All in App" : "세무대리인 선택부터\n신고까지 간편하게" },
+    { label: isEn ? "Tax Filing" : "세무전문가", headline: isEn ? "From Tax Agent\nto Filing, All in App" : "세무전문가 선택부터\n신고까지 간편하게" },
   ];
   const bgs = [
     { bg: "linear-gradient(165deg, #2570cc 0%, #4DA0F7 40%, #7fc0ff 100%)", color: "#fff" },
