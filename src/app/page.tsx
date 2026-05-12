@@ -213,12 +213,12 @@ function FeatureGraphicPreview({ lang }: { lang: Lang }) {
   );
 }
 
-function SlidePreview({ index, slides, device, setExportRef }: { index: number; slides: ReturnType<typeof getSlides>; device: "ios" | "ipad"; setExportRef?: (i: number, el: HTMLDivElement | null) => void }) {
+function SlidePreview({ index, slides, device, setExportRef, exportW: overrideW, exportH: overrideH }: { index: number; slides: ReturnType<typeof getSlides>; device: "ios" | "ipad"; setExportRef?: (i: number, el: HTMLDivElement | null) => void; exportW?: number; exportH?: number }) {
   const previewRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.15);
-  const W = device === "ipad" ? IPAD_SLIDE_W : SLIDE_W;
-  const H = device === "ipad" ? IPAD_SLIDE_H : SLIDE_H;
+  const W = overrideW ?? (device === "ipad" ? IPAD_SLIDE_W : SLIDE_W);
+  const H = overrideH ?? (device === "ipad" ? IPAD_SLIDE_H : SLIDE_H);
 
   useEffect(() => {
     const el = previewRef.current;
@@ -284,6 +284,7 @@ export default function Page() {
   const ipadSlides = getSlides(lang, "ipad");
 
   const iosExportRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const ios67ExportRefs = useRef<(HTMLDivElement | null)[]>([]);
   const ipadExportRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const captureZip = useCallback(async (refs: React.RefObject<(HTMLDivElement | null)[]>, slides: ReturnType<typeof getSlides>, w: number, h: number, prefix: string) => {
@@ -307,7 +308,7 @@ export default function Page() {
   }, [lang]);
 
   const dlIos = useCallback(() => captureZip(iosExportRefs, iosSlides, SLIDE_W, SLIDE_H, "ios-6.9"), [captureZip, iosSlides]);
-  const dlIos67 = useCallback(() => captureZip(iosExportRefs, iosSlides, SLIDE_W_67, SLIDE_H_67, "ios-6.7"), [captureZip, iosSlides]);
+  const dlIos67 = useCallback(() => captureZip(ios67ExportRefs, iosSlides, SLIDE_W_67, SLIDE_H_67, "ios-6.7"), [captureZip, iosSlides]);
   const dlIpad = useCallback(() => captureZip(ipadExportRefs, ipadSlides, IPAD_SLIDE_W, IPAD_SLIDE_H, "ipad"), [captureZip, ipadSlides]);
   const dlPlay = useCallback(() => captureZip(iosExportRefs, iosSlides, SLIDE_W, SLIDE_H, "play"), [captureZip, iosSlides]);
 
@@ -355,7 +356,7 @@ export default function Page() {
 
             <Sub title={`iOS 스크린샷 — 6.7"`} desc={`${SLIDE_W_67}×${SLIDE_H_67}px · iPhone 15 Plus / 14 Plus`} onDownload={dlIos67} />
             <div className="grid grid-cols-4 gap-4 mb-16">
-              {iosSlides.map((s, i) => (<SlidePreview key={`67-${s.id}`} index={i} slides={iosSlides} device="ios" setExportRef={() => {}} />))}
+              {iosSlides.map((s, i) => (<SlidePreview key={`67-${s.id}`} index={i} slides={iosSlides} device="ios" exportW={SLIDE_W_67} exportH={SLIDE_H_67} setExportRef={(idx, el) => { ios67ExportRefs.current[idx] = el; }} />))}
             </div>
 
             <Sub title="iPad 스크린샷" desc={`13" iPad — ${IPAD_SIZE.w}×${IPAD_SIZE.h}px`} onDownload={dlIpad} />
