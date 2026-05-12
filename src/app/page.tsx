@@ -10,7 +10,8 @@ const SC_L = (52/MK_W)*100, SC_T = (46/MK_H)*100, SC_W = (918/MK_W)*100, SC_H = 
 const SC_RX = (126/918)*100, SC_RY = (126/1990)*100;
 const IPAD_SIZE = { w: 2064, h: 2752 };
 const ICON_PLAY = 512, ICON_IOS = 1024;
-const SLIDE_W = 1320, SLIDE_H = 2868;
+const SLIDE_W = 1320, SLIDE_H = 2868;       // 6.9"
+const SLIDE_W_67 = 1290, SLIDE_H_67 = 2796; // 6.7"
 const IPAD_SLIDE_W = 2064, IPAD_SLIDE_H = 2752;
 
 type Lang = "ko" | "en";
@@ -305,7 +306,8 @@ export default function Page() {
     const a = document.createElement("a"); a.download = `zkap-${prefix}-${lang}.zip`; a.href = URL.createObjectURL(blob); a.click();
   }, [lang]);
 
-  const dlIos = useCallback(() => captureZip(iosExportRefs, iosSlides, SLIDE_W, SLIDE_H, "ios"), [captureZip, iosSlides]);
+  const dlIos = useCallback(() => captureZip(iosExportRefs, iosSlides, SLIDE_W, SLIDE_H, "ios-6.9"), [captureZip, iosSlides]);
+  const dlIos67 = useCallback(() => captureZip(iosExportRefs, iosSlides, SLIDE_W_67, SLIDE_H_67, "ios-6.7"), [captureZip, iosSlides]);
   const dlIpad = useCallback(() => captureZip(ipadExportRefs, ipadSlides, IPAD_SLIDE_W, IPAD_SLIDE_H, "ipad"), [captureZip, ipadSlides]);
   const dlPlay = useCallback(() => captureZip(iosExportRefs, iosSlides, SLIDE_W, SLIDE_H, "play"), [captureZip, iosSlides]);
 
@@ -346,9 +348,14 @@ export default function Page() {
             <h2 className="text-[28px] font-bold mb-2">App Store</h2>
             <p className="text-[14px] text-white/35 mb-12">iOS 앱 심사에 필요한 스크린샷 및 에셋</p>
 
-            <Sub title="iOS 스크린샷" desc="iPhone 6.3&quot; — 1206×2622px" onDownload={dlIos} />
-            <div className="grid grid-cols-4 gap-4 mb-16">
+            <Sub title={`iOS 스크린샷 — 6.9" (필수)`} desc={`${SLIDE_W}×${SLIDE_H}px · iPhone 16 Pro Max`} onDownload={dlIos} />
+            <div className="grid grid-cols-4 gap-4 mb-6">
               {iosSlides.map((s, i) => (<SlidePreview key={s.id} index={i} slides={iosSlides} device="ios" setExportRef={(idx, el) => { iosExportRefs.current[idx] = el; }} />))}
+            </div>
+
+            <Sub title={`iOS 스크린샷 — 6.7"`} desc={`${SLIDE_W_67}×${SLIDE_H_67}px · iPhone 15 Plus / 14 Plus`} onDownload={dlIos67} />
+            <div className="grid grid-cols-4 gap-4 mb-16">
+              {iosSlides.map((s, i) => (<SlidePreview key={`67-${s.id}`} index={i} slides={iosSlides} device="ios" setExportRef={() => {}} />))}
             </div>
 
             <Sub title="iPad 스크린샷" desc={`13" iPad — ${IPAD_SIZE.w}×${IPAD_SIZE.h}px`} onDownload={dlIpad} />
